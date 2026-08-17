@@ -30,7 +30,19 @@ final class GamedayController extends Controller
             'lead' => $settings->leadMinutes(),
             'recaps' => $settings->recaps(),
             'fallback' => $settings->fallbackForumId(),
+            /*
+             * 🚨 Shown as a NAME, stored as an id.
+             *
+             * The field used to be the raw number, which asks an operator to go
+             * and look up a member id to answer "who posts these" — a question
+             * they can answer instantly in words. The id is what gets stored,
+             * because a member who changes their name must not silently detach
+             * the setting.
+             */
             'author' => $settings->authorId(),
+            'authorName' => (string) ($this->app->make('db')->table('users')
+                ->where('id', $settings->authorId())
+                ->first()['username'] ?? ''),
             'forums' => $this->app->make('db')->table('forums')->orderBy('title')->limit(500)->get(),
             'upcoming' => $games->available() ? $this->upcoming() : [],
             // `getFlash`, not `pull` — the latter is a method I assumed and Convoro does not have.
@@ -52,15 +64,34 @@ final class GamedayController extends Controller
              */
             'gameday_lead_minutes' => (string) max(15, min(2880, (int) $request->input('lead', '180'))),
             'gameday_fallback_forum' => (string) max(0, (int) $request->input('fallback', '0')),
-            'gameday_author' => (string) max(1, (int) $request->input('author', '1')),
         ];
+
+        /*
+         * 🚨 An unknown name LEAVES THE SETTING ALONE and says so, rather than
+         * falling back to member 1. Silently posting game threads as whoever
+         * happens to be the first account on the site is the kind of default
+         * that gets noticed on a Saturday, in public, under somebody's name.
+         */
+        $name = trim((string) $request->input('author', ''));
+        $problem = null;
+
+        if ($name !== '') {
+            $author = $db->table('users')
+                ->where('username_clean', mb_strtolower($name))
+                ->whereNull('deleted_at')
+                ->first();
+
+            $author === null
+                ? $problem = __('gameday.author_unknown', ['name' => $name])
+                : $values['gameday_author'] = (string) (int) $author['id'];
+        }
 
         foreach ($values as $key => $value) {
             $db->table('settings')->where('key', $key)->deleteAll();
             $db->table('settings')->insertGetId(['key' => $key, 'value' => $value]);
         }
 
-        $this->session($request)->flash('gameday_notice', __('gameday.saved'));
+        $this->session($request)->flash('gameday_notice', $problem ?? __('gameday.saved'));
 
         return $this->redirect('/admin/gameday');
     }

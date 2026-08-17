@@ -97,7 +97,7 @@
 
             <div class="admin-form-group">
                 <label for="gameday-fallback">@lang('gameday.setting_fallback')</label>
-                <select id="gameday-fallback" name="fallback" class="admin-input input-md">
+                <select id="gameday-fallback" name="fallback" class="admin-input input-lg">
                     <option value="0">@lang('gameday.no_fallback')</option>
                     @each ($forums as $forum)
                     <option value="{{ $forum['id'] }}" @if((int) $fallback === (int) $forum['id'])selected@endif>{{ $forum['title'] }}</option>
@@ -108,7 +108,7 @@
 
             <div class="admin-form-group">
                 <label for="gameday-author">@lang('gameday.setting_author')</label>
-                <input type="text" id="gameday-author" name="author" value="{{ $author }}" class="admin-input input-md">
+                <input type="text" id="gameday-author" name="author" value="{{ $authorName }}" class="admin-input input-md">
                 <p class="admin-hint">@lang('gameday.setting_author_hint')</p>
             </div>
 

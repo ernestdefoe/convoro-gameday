@@ -383,4 +383,42 @@ return [
             $sweep();
         }
     },
+
+    'the author is chosen by name, and a name nobody has changes nothing' => static function (): void {
+        /*
+         * 🚨 The failure this guards is public and embarrassing: a typo in the
+         * author field silently falling back to member 1 means Saturday's game
+         * threads are posted under whoever happens to be the site's first
+         * account. Everything else on the form still saves — an operator who
+         * fixed the lead time and mistyped a name should not lose both.
+         */
+        $source = (string) file_get_contents(dirname(__DIR__) . '/Controllers/Admin/GamedayController.php');
+
+        assertTrue(str_contains($source, "where('username_clean'"), 'looked up by name');
+        assertFalse(
+            str_contains($source, "'gameday_author' => (string) max(1,"),
+            'the raw-id fallback to member 1 must be gone'
+        );
+        assertTrue(str_contains($source, 'author_unknown'), 'and an unknown name is reported');
+    },
+
+    'the manifest admits it cannot work without Picks' => static function (): void {
+        /*
+         * 🚨 A manifest floor is a PROMISE, and the LOOSE direction is the one
+         * that hurts: an extension that installs cleanly and then throws on
+         * every page is worse than one that refuses to install.
+         *
+         * `Scoreboard` joins `picks_events` and `picks_teams` with no guard —
+         * deliberately, because a scoreboard with no fixtures is not a
+         * degraded scoreboard, it is nothing. So the dependency belongs here,
+         * where the installer can enforce it, rather than in a runtime check
+         * that hides the problem.
+         */
+        $manifest = json_decode(
+            (string) file_get_contents(dirname(__DIR__) . '/manifest.json'),
+            true
+        );
+
+        assertTrue(in_array('picks', $manifest['requires'], true), 'Picks is required, not optional');
+    },
 ];

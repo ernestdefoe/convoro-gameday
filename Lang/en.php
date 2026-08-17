@@ -39,5 +39,6 @@ return [
     'setting_fallback_hint' => 'A neutral-site game belongs to neither team. Without this, those games get no thread.',
 
     'setting_author' => 'Post these threads as',
-    'setting_author_hint' => 'A real account, chosen by you. A post from a member nobody recognises reads as a bot on a board that has never had one.',
+    'setting_author_hint' => 'The username of a real account, chosen by you. A post from a member nobody recognises reads as a bot on a board that has never had one.',
+    'author_unknown' => 'Everything else was saved, but there is nobody here called “{name}” — so the account these threads post as is unchanged.',
 ];
