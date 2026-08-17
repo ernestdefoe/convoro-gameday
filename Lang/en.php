@@ -22,6 +22,10 @@ return [
     'no_fallback' => 'No fallback — skip those games',
     'save' => 'Save',
     'record_title' => 'Their pick record this season',
+
+    'widget_label' => 'Scoreboard',
+    'playing_now' => 'Playing now',
+    'to_the_thread' => 'To the thread',
     'saved' => 'Saved.',
 
     'setting_enabled' => 'Open a thread for every game',

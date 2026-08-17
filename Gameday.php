@@ -36,6 +36,10 @@ final class Gameday extends Module
             $this->app->make('db'),
         ));
 
+        $this->app->singleton('gameday.scoreboard', fn (): Services\Scoreboard => new Services\Scoreboard(
+            $this->app->make('db'),
+        ));
+
         $this->app->singleton('gameday.records', fn (): Services\Records => new Services\Records(
             $this->app->make('db'),
         ));
@@ -49,6 +53,37 @@ final class Gameday extends Module
 
     public function boot(): void
     {
+        /*
+         * A placeable block, so the same scoreboard can be the live topic's
+         * companion panel, a sidebar widget, or a row on the front page. A panel is
+         * a page and a page takes widgets, so nothing special is needed to put it
+         * beside a game.
+         */
+        /*
+         * 🚨 The extension ships its own CSS through `head.after`, which is the
+         * pattern every port follows: layout only, and the theme still owns colour
+         * and type through its tokens. A raw hex here would be wrong in one of the
+         * two themes, and editing the theme's stylesheet would be a fork.
+         */
+        $this->template()->registerHook('head.after', fn (): string => '<style>'
+            . '.gameday-record{margin-left:0.25rem;padding:0 0.25rem;border-radius:var(--radius-pill);'
+            . 'background:var(--c-hover);color:var(--c-text-muted);font-size:0.7rem;'
+            . 'font-variant-numeric:tabular-nums;}'
+            . '.gameday-scoreboard{display:flex;flex-direction:column;gap:0.25rem;}'
+            . '.gameday-teams{display:flex;justify-content:space-between;gap:0.5rem;}'
+            . '.gameday-team{font-weight:600;}'
+            . '.gameday-score{font-variant-numeric:tabular-nums;font-weight:600;}'
+            . '.gameday-when{margin:0.25rem 0 0;color:var(--c-text-muted);font-size:0.8rem;}'
+            . '.gameday-link{font-size:0.8rem;}'
+            . '</style>');
+
+        $this->app->make('widget_types')->register('gameday.scoreboard', [
+            'label' => __('gameday.widget_label'),
+            'group' => __('gameday.name'),
+            'module' => 'gameday',
+            'render' => fn (array $w, ?array $viewer, bool $dark): string => $this->scoreboard(),
+        ]);
+
         /*
          * 🚨 Queued and minutely, never in a request. Kickoff is a moment, so a
          * thread that opened on the next page view would open when somebody happened
@@ -103,5 +138,34 @@ final class Gameday extends Module
                 . htmlspecialchars($record, ENT_QUOTES, 'UTF-8')
                 . '</span>';
         });
+    }
+
+    /**
+     * 🚨 Renders nothing at all when there is no game. An empty scoreboard is worse
+     * than no scoreboard: it takes permanent space to say nothing, and on a Tuesday
+     * in June that is every page view.
+     */
+    private function scoreboard(): string
+    {
+        if (!$this->app->make('gameday.games')->available()) {
+            return '';
+        }
+
+        /*
+         * 🚨 The viewer's own readable forums, resolved here and handed down. The
+         * score is public; the LINK into the thread is not, if the thread lives in a
+         * forum they cannot open.
+         */
+        $readable = $this->app->make('forum.visibility')->readableIds(
+            array_map('intval', (array) $this->app->make('template')->shared('viewerGroupIds', []))
+        );
+
+        $game = $this->app->make('gameday.scoreboard')->current($readable);
+
+        if ($game === null) {
+            return '';
+        }
+
+        return $this->template()->render('gameday::widgets/scoreboard', ['game' => $game]);
     }
 }

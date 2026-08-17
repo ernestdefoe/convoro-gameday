@@ -157,6 +157,40 @@ return [
         }
     },
 
+    'the scoreboard shows the live game, and drops the link a reader cannot follow' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $f = $forum('Auburn');
+            $id = $game($team('Auburn', $f), $team('Alabama', $f), time() + 600);
+
+            $threads()->open();
+            $db->table('picks_events')->where('id', $id)->updateAll([
+                'match_at' => time() - 600, 'home_score' => 17, 'away_score' => 14,
+            ]);
+            $threads()->start();
+
+            $board = new \Convoro\Extensions\Gameday\Services\Scoreboard($db);
+
+            // Nothing is restricted: the link is there.
+            $open = $board->current(null);
+            assertTrue($open !== null);
+            assertSame('live', (string) $open['state'], 'the live game wins over the next kickoff');
+            assertSame(17, (int) $open['home_score']);
+            assertTrue((int) $open['topic_id'] > 0);
+
+            /*
+             * 🚨 A reader who cannot open that forum still gets the score — it is
+             * public — but not a link into a forum they may not read, which is a
+             * dead end and a disclosure at once.
+             */
+            $closed = $board->current([$f + 99999]);
+            assertTrue($closed !== null, 'the score is still shown');
+            assertSame(null, $closed['topic_id'], 'and the link is gone');
+        } finally {
+            $sweep();
+        }
+    },
+
     'a thread opens before kickoff, in the home team&#039;s forum' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
         try {
             $setting('gameday_enabled', '1');

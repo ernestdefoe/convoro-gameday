@@ -1,0 +1,27 @@
+{#
+    One game: live if there is one, otherwise the next to kick off.
+
+    🚨 The score is shown without a link when the reader cannot open the forum the
+    thread lives in. The score is public; a link into a forum somebody may not read
+    is a dead end and a disclosure at once.
+#}
+<div class="gameday-scoreboard">
+    <div class="gameday-teams">
+        <span class="gameday-team">{{ $game['away_name'] }}</span>
+        @notempty($game['away_score'])<span class="gameday-score">{{ (int) $game['away_score'] }}</span>@endnotempty
+    </div>
+
+    <div class="gameday-teams">
+        <span class="gameday-team">{{ $game['home_name'] }}</span>
+        @notempty($game['home_score'])<span class="gameday-score">{{ (int) $game['home_score'] }}</span>@endnotempty
+    </div>
+
+    <p class="gameday-when">
+        @if($game['state'] === 'live')@lang('gameday.playing_now')@endif
+        @if($game['state'] !== 'live'){{ date('D j M, g:ia', (int) $game['match_at']) }}@endif
+    </p>
+
+    @notempty($game['topic_id'])
+    <a class="gameday-link" href="/topic/{{ $game['topic_id'] }}-{{ $game['topic_slug'] }}">@lang('gameday.to_the_thread')</a>
+    @endnotempty
+</div>
