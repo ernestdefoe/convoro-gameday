@@ -1,0 +1,300 @@
+<?php
+
+declare(strict_types=1);
+
+use Convoro\Engine\Convoro;
+use Convoro\Extensions\Gameday\Services\Threads;
+
+/*
+ * The four moments: a thread opens, goes live at kickoff, resolves at the final
+ * whistle, and keeps the score.
+ *
+ * 🚨 Most of what is asserted here is restraint. It must not open a thread for a
+ * game that already finished (installing on a live board mid-season would post two
+ * hundred threads in a minute), must not open two for one game however often the
+ * tick runs, must not go live before kickoff, and must not announce a score the
+ * feed has not confirmed.
+ */
+
+$app = Convoro::getInstance();
+$db = $app->make('db');
+
+$MARK = 'zz-test-gameday';
+
+$threads = static fn (): Threads => Convoro::getInstance()->make('gameday.threads');
+
+$setting = static function (string $key, string $value) use ($db): void {
+    $db->table('settings')->where('key', $key)->deleteAll();
+    $db->table('settings')->insertGetId(['key' => $key, 'value' => $value]);
+};
+
+$forum = static function (string $name) use ($db, $MARK): int {
+    return $db->table('forums')->insertGetId([
+        'title' => $MARK . ' ' . $name,
+        'slug' => 'zz-test-gameday-' . bin2hex(random_bytes(4)),
+        'type' => 'forum',
+        'position' => 0,
+        'topic_count' => 0,
+        'post_count' => 0,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]);
+};
+
+/*
+ * 🚨 An unmapped team is `forum_id = 0`, not NULL — the column is NOT NULL in Picks.
+ * Worth knowing, because "no forum" being a zero rather than an absence is exactly
+ * the kind of thing a reader gets wrong once.
+ */
+$team = static function (string $name, int $forumId = 0) use ($db, $MARK): int {
+    return $db->table('picks_teams')->insertGetId([
+        'name' => $MARK . ' ' . $name,
+        'slug' => 'zz-test-gameday-' . bin2hex(random_bytes(4)),
+        'abbreviation' => strtoupper(substr($name, 0, 4)),
+        'conference' => 'ZZ',
+        'forum_id' => $forumId,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]);
+};
+
+$game = static function (int $home, int $away, int $matchAt, array $extra = []) use ($db): int {
+    return $db->table('picks_events')->insertGetId(array_merge([
+        'home_team_id' => $home,
+        'away_team_id' => $away,
+        'match_at' => $matchAt,
+        'cutoff_at' => $matchAt,
+        'status' => 'scheduled',
+        'neutral_site' => 0,
+        'confirmed_at' => 0,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ], $extra));
+};
+
+$sweep = static function () use ($db, $MARK): void {
+    foreach ($db->table('gameday_threads')->get() as $row) {
+        $topic = $db->table('topics')->where('id', (int) $row['topic_id'])->first();
+
+        if ($topic !== null && str_starts_with((string) $topic['title'], $MARK)) {
+            $db->table('posts')->where('topic_id', (int) $row['topic_id'])->deleteAll();
+            $db->table('topics')->where('id', (int) $row['topic_id'])->deleteAll();
+            $db->table('gameday_threads')->where('id', (int) $row['id'])->deleteAll();
+        }
+    }
+
+    foreach ($db->table('picks_teams')->whereLike('name', $MARK . '%')->get() as $t) {
+        $db->table('picks_events')->where('home_team_id', (int) $t['id'])->deleteAll();
+        $db->table('picks_events')->where('away_team_id', (int) $t['id'])->deleteAll();
+        $db->table('picks_teams')->where('id', (int) $t['id'])->deleteAll();
+    }
+
+    foreach ($db->table('forums')->whereLike('title', $MARK . '%')->get() as $f) {
+        $db->table('topics')->where('forum_id', (int) $f['id'])->deleteAll();
+        $db->table('forums')->where('id', (int) $f['id'])->deleteAll();
+    }
+
+    // Leave the operator's own settings alone; only ours are removed.
+    foreach (['gameday_enabled', 'gameday_lead_minutes', 'gameday_recaps', 'gameday_fallback_forum', 'gameday_author'] as $key) {
+        $db->table('settings')->where('key', $key)->deleteAll();
+    }
+};
+
+/** The thread row for a game, if it made one. */
+$threadFor = static fn (int $eventId): ?array => Convoro::getInstance()->make('db')
+    ->table('gameday_threads')->where('event_id', $eventId)->first();
+
+return [
+    'a thread opens before kickoff, in the home team&#039;s forum' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $home = $forum('Auburn');
+            $away = $forum('Alabama');
+
+            $id = $game($team('Auburn', $home), $team('Alabama', $away), time() + 3600);
+
+            assertSame(1, $threads()->open());
+
+            $row = $threadFor($id);
+            assertTrue($row !== null);
+
+            $topic = $db->table('topics')->where('id', (int) $row['topic_id'])->first();
+            assertSame($home, (int) $topic['forum_id'], 'the home team hosts it');
+
+            // "Alabama at Auburn" — away team first, as anybody would say it.
+            assertTrue(str_contains((string) $topic['title'], ' at '), (string) $topic['title']);
+            assertSame(1, (int) $topic['post_count'], 'and it opens with one post');
+        } finally {
+            $sweep();
+        }
+    },
+
+    'a game that has already kicked off gets no thread' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep): void {
+        /*
+         * 🚨 The install guard. Without the lower bound, enabling this mid-season
+         * posts every game of the year to a live board inside one minute.
+         */
+        try {
+            $setting('gameday_enabled', '1');
+            $f = $forum('Auburn');
+            $id = $game($team('Auburn', $f), $team('Alabama', $f), time() - 7200);
+
+            assertSame(0, $threads()->open());
+            assertSame(null, $threadFor($id));
+        } finally {
+            $sweep();
+        }
+    },
+
+    'a game gets one thread however many ticks run' => static function () use ($threads, $setting, $forum, $team, $game, $sweep, $db): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $f = $forum('Auburn');
+            $game($team('Auburn', $f), $team('Alabama', $f), time() + 3600);
+
+            assertSame(1, $threads()->open());
+            assertSame(0, $threads()->open(), 'the second tick finds nothing to do');
+            assertSame(0, $threads()->open());
+
+            assertSame(1, count($db->table('gameday_threads')->get()));
+        } finally {
+            $sweep();
+        }
+    },
+
+    'it goes live at kickoff, and not before' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $f = $forum('Auburn');
+            $id = $game($team('Auburn', $f), $team('Alabama', $f), time() + 3600);
+
+            $threads()->open();
+            assertSame(0, $threads()->start(), 'an hour out, it stays an ordinary topic');
+
+            // Kickoff.
+            $db->table('picks_events')->where('id', $id)->updateAll(['match_at' => time() - 60]);
+
+            assertSame(1, $threads()->start());
+
+            $row = $threadFor($id);
+            assertSame('live', (string) $row['state']);
+
+            $topic = $db->table('topics')->where('id', (int) $row['topic_id'])->first();
+            assertSame('live', (string) $topic['live_state'], 'through the Live service, so the panel and slow mode work');
+        } finally {
+            $sweep();
+        }
+    },
+
+    'a score is not announced until the feed confirms it' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
+        /*
+         * 🚨 A board that declares the wrong final score is worse than one that is
+         * ten minutes late. `confirmed_at`, not `status`.
+         */
+        try {
+            $setting('gameday_enabled', '1');
+            $f = $forum('Auburn');
+            $id = $game($team('Auburn', $f), $team('Alabama', $f), time() - 3600);
+
+            // Give it a thread the way a real one would have got it.
+            $db->table('picks_events')->where('id', $id)->updateAll(['match_at' => time() + 600]);
+            $threads()->open();
+            $db->table('picks_events')->where('id', $id)->updateAll(['match_at' => time() - 3600]);
+            $threads()->start();
+
+            // Scores in, but unconfirmed.
+            $db->table('picks_events')->where('id', $id)->updateAll([
+                'status' => 'final', 'home_score' => 24, 'away_score' => 21, 'confirmed_at' => 0,
+            ]);
+
+            assertSame(0, $threads()->resolve(), 'final on the feed is not the same as settled');
+
+            $db->table('picks_events')->where('id', $id)->updateAll(['confirmed_at' => time()]);
+
+            assertSame(1, $threads()->resolve());
+
+            $row = $threadFor($id);
+            assertSame('resolved', (string) $row['state']);
+
+            $topic = $db->table('topics')->where('id', (int) $row['topic_id'])->first();
+            assertSame('resolved', (string) $topic['live_state'], 'and it is an ordinary topic again');
+        } finally {
+            $sweep();
+        }
+    },
+
+    'the recap is a new post and the opening post is untouched' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $f = $forum('Auburn');
+            $id = $game($team('Auburn', $f), $team('Alabama', $f), time() + 600);
+
+            $threads()->open();
+            $row = $threadFor($id);
+            $opener = $db->table('posts')->where('topic_id', (int) $row['topic_id'])->first();
+            $openerBefore = (string) $opener['content_html'];
+
+            $db->table('picks_events')->where('id', $id)->updateAll([
+                'match_at' => time() - 3600, 'status' => 'final',
+                'home_score' => 31, 'away_score' => 28, 'confirmed_at' => time(),
+            ]);
+
+            $threads()->start();
+            $threads()->resolve();
+
+            $posts = $db->table('posts')->where('topic_id', (int) $row['topic_id'])->get();
+            assertSame(2, count($posts), 'the recap is an addition, not an edit');
+
+            $again = $db->table('posts')->where('id', (int) $opener['id'])->first();
+            assertSame($openerBefore, (string) $again['content_html'], 'nobody rewrote the opening post');
+
+            $recap = (string) $posts[1]['content_html'];
+            assertTrue(str_contains($recap, '31'), 'and it carries the score');
+            assertTrue(str_contains($recap, '28'));
+
+            $fresh = $threadFor($id);
+            assertTrue((int) $fresh['recap_post_id'] > 0, 'recorded, so a second tick adds nothing');
+
+            assertSame(0, $threads()->resolve());
+            assertSame(2, count($db->table('posts')->where('topic_id', (int) $row['topic_id'])->get()));
+        } finally {
+            $sweep();
+        }
+    },
+
+    'a neutral-site game falls back to the forum the operator named' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $neutral = $forum('Bowls');
+            $setting('gameday_fallback_forum', (string) $neutral);
+
+            $id = $game($team('Auburn', 0), $team('Alabama', 0), time() + 3600, ['neutral_site' => 1]);
+
+            assertSame(1, $threads()->open());
+
+            $row = $threadFor($id);
+            $topic = $db->table('topics')->where('id', (int) $row['topic_id'])->first();
+
+            assertSame($neutral, (int) $topic['forum_id']);
+            assertTrue(str_contains((string) $topic['title'], ' vs '), 'neutral games are "vs", not "at"');
+        } finally {
+            $sweep();
+        }
+    },
+
+    'a game with nowhere to go is skipped rather than failing' => static function () use ($threads, $setting, $team, $game, $threadFor, $sweep): void {
+        /*
+         * 🚨 A board part-way through mapping its teams should get the games it can,
+         * not a scheduled job that throws every minute.
+         */
+        try {
+            $setting('gameday_enabled', '1');
+            $id = $game($team('Auburn', 0), $team('Alabama', 0), time() + 3600);
+
+            assertSame(0, $threads()->open());
+            assertSame(null, $threadFor($id));
+        } finally {
+            $sweep();
+        }
+    },
+];
