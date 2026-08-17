@@ -21,11 +21,22 @@ final class Gameday extends Module
 {
     public function register(): void
     {
+        /*
+         * Under Community: this is about what the board does on a Saturday, not
+         * about how the server is configured.
+         */
+        $this->adminNav()->area('community')
+            ->item('gameday', '/admin/gameday', 'gameday.nav');
+
         $this->app->singleton('gameday.settings', fn (): Services\Settings => new Services\Settings(
             $this->app->make('db'),
         ));
 
         $this->app->singleton('gameday.games', fn (): Services\Games => new Services\Games(
+            $this->app->make('db'),
+        ));
+
+        $this->app->singleton('gameday.records', fn (): Services\Records => new Services\Records(
             $this->app->make('db'),
         ));
 
@@ -63,5 +74,34 @@ final class Gameday extends Module
         });
 
         $this->schedule()->minutely('gameday.tick');
+
+        /*
+         * The record beside the name.
+         *
+         * 🚨 Rendered through the `post.header` hook rather than by editing the post
+         * partial, which is the difference between an extension and a fork — an
+         * upgrade cannot undo it.
+         *
+         * 🚨 It renders NOTHING for somebody with no picks. A board where every
+         * lurker wears an 0–0 has made its own feature look broken.
+         */
+        $this->template()->registerHook('post.header', function (array $context): string {
+            $userId = (int) ($context['post']['user_id'] ?? 0);
+
+            if ($userId < 1) {
+                return '';
+            }
+
+            $record = $this->app->make('gameday.records')->forUser($userId);
+
+            if ($record === null) {
+                return '';
+            }
+
+            return '<span class="gameday-record" title="'
+                . htmlspecialchars(__('gameday.record_title'), ENT_QUOTES, 'UTF-8') . '">'
+                . htmlspecialchars($record, ENT_QUOTES, 'UTF-8')
+                . '</span>';
+        });
     }
 }

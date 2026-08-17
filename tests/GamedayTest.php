@@ -104,7 +104,59 @@ $sweep = static function () use ($db, $MARK): void {
 $threadFor = static fn (int $eventId): ?array => Convoro::getInstance()->make('db')
     ->table('gameday_threads')->where('event_id', $eventId)->first();
 
+/*
+ * 🚨 A fresh instance per assertion, not the container's singleton. Records caches
+ * everybody's record for the life of the object — right in a request, wrong in a
+ * test run where one container outlives every test in the file.
+ */
+$records = static fn (): \Convoro\Extensions\Gameday\Services\Records
+    => new \Convoro\Extensions\Gameday\Services\Records(Convoro::getInstance()->make('db'));
+
+$score = static function (int $userId, int $seasonId, int $weekId, int $correct, int $total) use ($db): void {
+    $db->table('picks_user_scores')->insertGetId([
+        'user_id' => $userId, 'season_id' => $seasonId, 'week_id' => $weekId,
+        'total_points' => $correct, 'total_picks' => $total, 'correct_picks' => $correct,
+        'accuracy' => $total > 0 ? round(($correct / $total) * 100) : 0,
+        'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
+    ]);
+};
+
 return [
+    'a member with no picks wears no record at all' => static function () use ($records): void {
+        /*
+         * 🚨 Null, not `0–0`. A zero record is a claim about how somebody is doing;
+         * no record is the truth. A board where every lurker wears an 0–0 has made
+         * its own feature look broken.
+         */
+        assertSame(null, $records()->forUser(999999));
+    },
+
+    'a record is the whole season, not the last week' => static function () use ($records, $score, $db): void {
+        /*
+         * 🚨 `picks_user_scores` is per member PER WEEK. Reading one row shows last
+         * Saturday as though it were the season.
+         */
+        try {
+            $user = $db->table('users')->insertGetId([
+                'username' => 'zz-test-gameday picker', 'username_clean' => 'zz-test-gameday picker',
+                'email' => 'zz-test-gameday-picker@invalid', 'password' => '',
+                'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $season = 4242;
+            $score($user, $season, 1, 7, 10);
+            $score($user, $season, 2, 5, 6);
+
+            // 12 right out of 16 is 12–4.
+            assertSame('12–4', $records()->forUser($user));
+        } finally {
+            foreach ($db->table('users')->whereLike('username', 'zz-test-gameday%')->get() as $u) {
+                $db->table('picks_user_scores')->where('user_id', (int) $u['id'])->deleteAll();
+                $db->table('users')->where('id', (int) $u['id'])->deleteAll();
+            }
+        }
+    },
+
     'a thread opens before kickoff, in the home team&#039;s forum' => static function () use ($threads, $setting, $forum, $team, $game, $threadFor, $sweep, $db): void {
         try {
             $setting('gameday_enabled', '1');

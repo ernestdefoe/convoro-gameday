@@ -4,6 +4,25 @@ declare(strict_types=1);
 
 return [
     'name' => 'Game Day',
+    'nav' => 'Game Day',
+    'intro' => 'A thread for every game: opened before kickoff in the home team\'s forum, live while it is played, and kept afterwards with the score.',
+
+    'needs_picks' => 'Game Day reads the fixtures Picks syncs, and Picks is not installed here. Nothing below will do anything until it is.',
+    'next_games' => 'The next few games',
+    'no_games' => 'No fixtures ahead. Picks syncs the schedule; once it has, they appear here.',
+    'game' => 'Game',
+    'kickoff' => 'Kickoff',
+    'thread' => 'Thread',
+    'thread_none' => 'Not yet',
+    'state_open' => 'Open',
+    'state_live' => 'Live now',
+    'state_resolved' => 'Finished',
+
+    'settings' => 'Settings',
+    'no_fallback' => 'No fallback — skip those games',
+    'save' => 'Save',
+    'record_title' => 'Their pick record this season',
+    'saved' => 'Saved.',
 
     'setting_enabled' => 'Open a thread for every game',
     'setting_enabled_hint' => 'Off until you turn it on. A thread opens before kickoff in the home team\'s forum, goes live when the game starts, and keeps the score afterwards.',

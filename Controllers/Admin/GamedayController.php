@@ -1,0 +1,96 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Convoro\Extensions\Gameday\Controllers\Admin;
+
+use Convoro\Engine\Http\Controller;
+use Convoro\Engine\Http\Request;
+use Convoro\Engine\Http\Response;
+
+/**
+ * Admin → Game Day.
+ *
+ * 🚨 The screen leads with the NEXT FEW GAMES and whether each has a thread, not
+ * with the settings. An operator's question is never "what is the lead time", it is
+ * "is Saturday covered" — and a settings form cannot answer that. It is also the
+ * only place the effect of the fallback forum is visible before a Saturday proves
+ * it wrong.
+ */
+final class GamedayController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $settings = $this->app->make('gameday.settings');
+        $games = $this->app->make('gameday.games');
+
+        return $this->render('gameday::admin/index', [
+            'available' => $games->available(),
+            'enabled' => $settings->enabled(),
+            'lead' => $settings->leadMinutes(),
+            'recaps' => $settings->recaps(),
+            'fallback' => $settings->fallbackForumId(),
+            'author' => $settings->authorId(),
+            'forums' => $this->app->make('db')->table('forums')->orderBy('title')->limit(500)->get(),
+            'upcoming' => $games->available() ? $this->upcoming() : [],
+            // `getFlash`, not `pull` — the latter is a method I assumed and Convoro does not have.
+            'notice' => $this->session($request)->getFlash('gameday_notice'),
+        ]);
+    }
+
+    public function save(Request $request): Response
+    {
+        $db = $this->app->make('db');
+
+        $values = [
+            'gameday_enabled' => $request->input('enabled') !== null ? '1' : '0',
+            'gameday_recaps' => $request->input('recaps') !== null ? '1' : '0',
+            /*
+             * Clamped here as well as in Settings. The form is one way in; a value
+             * typed into the database by hand is another, and neither should be able
+             * to open every thread of the season at once.
+             */
+            'gameday_lead_minutes' => (string) max(15, min(2880, (int) $request->input('lead', '180'))),
+            'gameday_fallback_forum' => (string) max(0, (int) $request->input('fallback', '0')),
+            'gameday_author' => (string) max(1, (int) $request->input('author', '1')),
+        ];
+
+        foreach ($values as $key => $value) {
+            $db->table('settings')->where('key', $key)->deleteAll();
+            $db->table('settings')->insertGetId(['key' => $key, 'value' => $value]);
+        }
+
+        $this->session($request)->flash('gameday_notice', __('gameday.saved'));
+
+        return $this->redirect('/admin/gameday');
+    }
+
+    /**
+     * The next handful of fixtures, with the thread each one has or has not got.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function upcoming(): array
+    {
+        $db = $this->app->make('db');
+        $events = $db->prefixed('picks_events');
+        $teams = $db->prefixed('picks_teams');
+        $threads = $db->prefixed('gameday_threads');
+        $topics = $db->prefixed('topics');
+
+        return $db->select(
+            "SELECT e.`id`, e.`match_at`, e.`neutral_site`,
+                    h.`name` AS home_name, a.`name` AS away_name,
+                    t.`state`, t.`topic_id`, tp.`slug` AS topic_slug
+               FROM `{$events}` e
+               INNER JOIN `{$teams}` h ON h.`id` = e.`home_team_id`
+               INNER JOIN `{$teams}` a ON a.`id` = e.`away_team_id`
+               LEFT JOIN `{$threads}` t ON t.`event_id` = e.`id`
+               LEFT JOIN `{$topics}` tp ON tp.`id` = t.`topic_id`
+              WHERE e.`match_at` > ?
+              ORDER BY e.`match_at` ASC
+              LIMIT 12",
+            [time() - 86400]
+        );
+    }
+}

@@ -1,0 +1,121 @@
+@layout('theme::layouts/admin')
+
+@section('title')@lang('gameday.name')@endsection
+@section('page_title')@lang('gameday.name')@endsection
+@section('page_sub')@lang('gameday.intro')@endsection
+
+@section('content')
+@notempty($notice)
+<div class="admin-alert admin-alert-success">{{ $notice }}</div>
+@endnotempty
+
+@if(!$available)
+{#
+    🚨 Said first and plainly. Without Picks there are no fixtures, so every setting
+    below is a control over nothing — and an operator deserves to know that before
+    they spend five minutes configuring it.
+#}
+<div class="admin-alert admin-alert-error">@lang('gameday.needs_picks')</div>
+@endif
+
+{#
+    🚨 The fixtures come BEFORE the form. The question an operator has is "is
+    Saturday covered", and a settings form cannot answer it.
+#}
+@if($available)
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h3>@lang('gameday.next_games')</h3>
+    </div>
+
+    <div class="admin-card-body">
+        @empty($upcoming)
+        <p class="admin-hint">@lang('gameday.no_games')</p>
+        @endempty
+
+        @notempty($upcoming)
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>@lang('gameday.game')</th>
+                    <th>@lang('gameday.kickoff')</th>
+                    <th>@lang('gameday.thread')</th>
+                </tr>
+            </thead>
+            <tbody>
+                @each ($upcoming as $game)
+                <tr>
+                    <td>{{ $game['away_name'] }}@if($game['neutral_site']) vs @endif@if(!$game['neutral_site']) at @endif{{ $game['home_name'] }}</td>
+                    <td>{{ date('D j M, g:ia', (int) $game['match_at']) }}</td>
+                    <td>
+                        @empty($game['state'])
+                        <span class="admin-hint">@lang('gameday.thread_none')</span>
+                        @endempty
+
+                        @notempty($game['state'])
+                        <a href="/topic/{{ $game['topic_id'] }}-{{ $game['topic_slug'] }}">@lang('gameday.state_' . $game['state'])</a>
+                        @endnotempty
+                    </td>
+                </tr>
+                @endeach
+            </tbody>
+        </table>
+        @endnotempty
+    </div>
+</div>
+@endif
+
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h3>@lang('gameday.settings')</h3>
+    </div>
+
+    <div class="admin-card-body">
+        <form method="POST" action="/admin/gameday">
+            @csrf
+
+            <div class="admin-form-group">
+                <label>
+                    <input type="checkbox" name="enabled" value="1" @if($enabled)checked@endif>
+                    @lang('gameday.setting_enabled')
+                </label>
+                <p class="admin-hint">@lang('gameday.setting_enabled_hint')</p>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gameday-lead">@lang('gameday.setting_lead')</label>
+                <input type="text" id="gameday-lead" name="lead" value="{{ $lead }}" class="admin-input input-md">
+                <p class="admin-hint">@lang('gameday.setting_lead_hint')</p>
+            </div>
+
+            <div class="admin-form-group">
+                <label>
+                    <input type="checkbox" name="recaps" value="1" @if($recaps)checked@endif>
+                    @lang('gameday.setting_recaps')
+                </label>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gameday-fallback">@lang('gameday.setting_fallback')</label>
+                <select id="gameday-fallback" name="fallback" class="admin-input input-md">
+                    <option value="0">@lang('gameday.no_fallback')</option>
+                    @each ($forums as $forum)
+                    <option value="{{ $forum['id'] }}" @if((int) $fallback === (int) $forum['id'])selected@endif>{{ $forum['title'] }}</option>
+                    @endeach
+                </select>
+                <p class="admin-hint">@lang('gameday.setting_fallback_hint')</p>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gameday-author">@lang('gameday.setting_author')</label>
+                <input type="text" id="gameday-author" name="author" value="{{ $author }}" class="admin-input input-md">
+                <p class="admin-hint">@lang('gameday.setting_author_hint')</p>
+            </div>
+
+            <div class="admin-toolbar">
+                <button type="submit" class="admin-btn admin-btn-primary">@lang('gameday.save')</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
