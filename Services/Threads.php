@@ -174,7 +174,7 @@ final class Threads
                 return false;
             }
 
-            $topicId = $this->db->table('topics')->insertGetId([
+            $topic = [
                 'forum_id' => $forumId,
                 'user_id' => $author,
                 'title' => $title,
@@ -184,7 +184,27 @@ final class Threads
                 'last_post_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]);
+            ];
+
+            /*
+             * 🚨 The panel is set at CREATION, not when the thread goes live.
+             *
+             * `Live::start()` does not take one, and a panel added afterwards
+             * would be missing for exactly the minutes people arrive — which
+             * is the only time a scoreboard is worth having beside a thread.
+             *
+             * Nothing here checks that the page is published: `LivePanel`
+             * already renders nothing for a page it would not offer, so a page
+             * unpublished later degrades to a thread with no panel rather than
+             * to a broken one.
+             */
+            $panel = $this->settings->panelPageId();
+
+            if ($panel > 0) {
+                $topic['live_panel_page_id'] = $panel;
+            }
+
+            $topicId = $this->db->table('topics')->insertGetId($topic);
 
             $postId = $this->db->table('posts')->insertGetId([
                 'topic_id' => $topicId,

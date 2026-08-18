@@ -38,6 +38,10 @@ return [
     'setting_fallback' => 'Forum for games with no team forum',
     'setting_fallback_hint' => 'A neutral-site game belongs to neither team. Without this, those games get no thread.',
 
+    'setting_panel' => 'Show this page beside a live game thread',
+    'setting_panel_hint' => 'A page built in Pages, shown in the panel next to the conversation while the game is on. Put the Game Day scoreboard block on it and the score sits beside the thread rather than on another tab.',
+    'no_panel' => 'No panel — just the thread',
+
     'setting_author' => 'Post these threads as',
     'setting_author_hint' => 'The username of a real account, chosen by you. A post from a member nobody recognises reads as a bot on a board that has never had one.',
     'author_unknown' => 'Everything else was saved, but there is nobody here called “{name}” — so the account these threads post as is unchanged.',

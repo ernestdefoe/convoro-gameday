@@ -106,6 +106,19 @@
                 <p class="admin-hint">@lang('gameday.setting_fallback_hint')</p>
             </div>
 
+            @notempty($panels)
+            <div class="admin-form-group">
+                <label for="gameday-panel">@lang('gameday.setting_panel')</label>
+                <select id="gameday-panel" name="panel" class="admin-input input-lg">
+                    <option value="0">@lang('gameday.no_panel')</option>
+                    @each ($panels as $pageId => $pageTitle)
+                    <option value="{{ $pageId }}" @if((int) $panel === (int) $pageId)selected@endif>{{ $pageTitle }}</option>
+                    @endeach
+                </select>
+                <p class="admin-hint">@lang('gameday.setting_panel_hint')</p>
+            </div>
+            @endnotempty
+
             <div class="admin-form-group">
                 <label for="gameday-author">@lang('gameday.setting_author')</label>
                 <input type="text" id="gameday-author" name="author" value="{{ $authorName }}" class="admin-input input-md">

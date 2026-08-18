@@ -85,6 +85,22 @@ final class Gameday extends Module
         ]);
 
         /*
+         * 🚨 A PAGE BLOCK as well as a widget, and this is what makes the note
+         * above true.
+         *
+         * The comment claimed the scoreboard could be a live topic's companion
+         * panel — and a panel is a page, and a page takes BLOCKS, not widgets.
+         * Registered only as a widget, it could go in a sidebar and nowhere
+         * near the thread it is about: the one place the design note says it
+         * belongs. Two registries, because they are two different surfaces.
+         */
+        $this->app->make('page_block_types')->register('gameday.scoreboard', [
+            'label' => __('gameday.widget_label'),
+            'group' => __('gameday.name'),
+            'render' => fn (array $settings, string $content): string => $this->scoreboard(),
+        ]);
+
+        /*
          * 🚨 Queued and minutely, never in a request. Kickoff is a moment, so a
          * thread that opened on the next page view would open when somebody happened
          * to arrive — which on a quiet Tuesday is hours late and on a Saturday is a

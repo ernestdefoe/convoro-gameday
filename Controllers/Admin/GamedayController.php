@@ -44,6 +44,15 @@ final class GamedayController extends Controller
                 ->where('id', $settings->authorId())
                 ->first()['username'] ?? ''),
             'forums' => $this->app->make('db')->table('forums')->orderBy('title')->limit(500)->get(),
+
+            /*
+             * The same list a moderator gets when attaching a panel by hand,
+             * from core's own service — published pages only, so nobody can
+             * pick a draft and then wonder why Saturday's threads have an
+             * empty panel.
+             */
+            'panel' => $settings->panelPageId(),
+            'panels' => $this->app->make('forum.live_panel')->choices(),
             'upcoming' => $games->available() ? $this->upcoming() : [],
             // `getFlash`, not `pull` — the latter is a method I assumed and Convoro does not have.
             'notice' => $this->session($request)->getFlash('gameday_notice'),
@@ -64,6 +73,7 @@ final class GamedayController extends Controller
              */
             'gameday_lead_minutes' => (string) max(15, min(2880, (int) $request->input('lead', '180'))),
             'gameday_fallback_forum' => (string) max(0, (int) $request->input('fallback', '0')),
+            'gameday_panel_page' => (string) max(0, (int) $request->input('panel', '0')),
         ];
 
         /*

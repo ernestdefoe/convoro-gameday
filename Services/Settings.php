@@ -40,6 +40,19 @@ final class Settings
         return (string) $this->get('gameday_recaps', '1') === '1';
     }
 
+    /**
+     * The page shown beside a game thread while it is live, or 0 for none.
+     *
+     * 🚨 A PAGE id, because that is what core's companion panel is — the panel
+     * is a page, and the whole coupling is `topics.live_panel_page_id`. Game
+     * Day contributes a scoreboard widget and then gets out of the way; what
+     * else goes beside the conversation is the operator's to decide.
+     */
+    public function panelPageId(): int
+    {
+        return max(0, (int) $this->get('gameday_panel_page', '0'));
+    }
+
     /** Where a game goes when neither team has a forum — a neutral-site game, say. */
     public function fallbackForumId(): int
     {

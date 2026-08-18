@@ -384,6 +384,61 @@ return [
         }
     },
 
+    'the scoreboard is registered where a panel can actually use it' => static function (): void {
+        /*
+         * 🚨 Two registries, two surfaces. A panel is a PAGE and a page takes
+         * BLOCKS; `widget_types` only gets it into a sidebar. Registered as a
+         * widget alone, the scoreboard could go anywhere except the one place
+         * the design note says it belongs — beside the game it is about.
+         */
+        $app = Convoro::getInstance();
+
+        assertTrue($app->make('widget_types')->has('gameday.scoreboard'), 'a widget');
+        assertTrue($app->make('page_block_types')->has('gameday.scoreboard'), 'and a page block');
+    },
+
+    'a game thread carries the panel from the moment it opens' => static function () use ($threads, $setting, $team, $game, $threadFor, $sweep, $db, $forum): void {
+        /*
+         * 🚨 Set at CREATION, not when the thread goes live. `Live::start()`
+         * does not take a panel, and one added afterwards would be missing for
+         * exactly the minutes people arrive — the only minutes a scoreboard
+         * beside a thread is worth having.
+         */
+        try {
+            $setting('gameday_enabled', '1');
+            $setting('gameday_panel_page', '4242');
+
+            $id = $game($team('Auburn', $forum('panel')), $team('Alabama', 0), time() + 1800);
+
+            assertSame(1, $threads()->open());
+
+            $row = $threadFor($id);
+            $topic = $db->table('topics')->where('id', (int) $row['topic_id'])->first();
+
+            assertSame(4242, (int) $topic['live_panel_page_id']);
+        } finally {
+            $setting('gameday_panel_page', '0');
+            $sweep();
+        }
+    },
+
+    'no panel chosen leaves the thread exactly as it was' => static function () use ($threads, $setting, $team, $game, $threadFor, $sweep, $db, $forum): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $setting('gameday_panel_page', '0');
+
+            $id = $game($team('Auburn', $forum('nopanel')), $team('Alabama', 0), time() + 1800);
+
+            assertSame(1, $threads()->open());
+
+            $topic = $db->table('topics')->where('id', (int) $threadFor($id)['topic_id'])->first();
+
+            assertSame(null, $topic['live_panel_page_id']);
+        } finally {
+            $sweep();
+        }
+    },
+
     'the author is chosen by name, and a name nobody has changes nothing' => static function (): void {
         /*
          * 🚨 The failure this guards is public and embarrassing: a typo in the
