@@ -78,8 +78,8 @@ final class Gameday extends Module
             . '</style>');
 
         $this->app->make('widget_types')->register('gameday.scoreboard', [
-            'label' => __('gameday.widget_label'),
-            'group' => __('gameday.name'),
+            'label' => 'gameday.widget_label',
+            'group' => 'gameday.name',
             'module' => 'gameday',
             'render' => fn (array $w, ?array $viewer, bool $dark): string => $this->scoreboard(),
         ]);
@@ -95,8 +95,8 @@ final class Gameday extends Module
          * belongs. Two registries, because they are two different surfaces.
          */
         $this->app->make('page_block_types')->register('gameday.scoreboard', [
-            'label' => __('gameday.widget_label'),
-            'group' => __('gameday.name'),
+            'label' => 'gameday.widget_label',
+            'group' => 'gameday.name',
             'render' => fn (array $settings, string $content): string => $this->scoreboard(),
         ]);
 
