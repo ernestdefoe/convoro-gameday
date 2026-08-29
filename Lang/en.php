@@ -11,6 +11,7 @@ return [
     'next_games' => 'The next few games',
     'no_games' => 'No fixtures ahead. Picks syncs the schedule; once it has, they appear here.',
     'game' => 'Game',
+    'has_the_ball' => 'has the ball',
     'kickoff' => 'Kickoff',
     'thread' => 'Thread',
     'thread_none' => 'Not yet',

@@ -64,6 +64,22 @@ final class Scoreboard
         $fresh = $clockAt > 0 && ($now - $clockAt) <= self::CLOCK_FRESH_FOR;
         $clock = trim((string) ($game['clock'] ?? ''));
 
+        $possession = $state === 'live' && $fresh
+            && in_array((string) ($game['possession'] ?? ''), ['home', 'away'], true)
+                ? (string) $game['possession']
+                : null;
+
+        /*
+         * Marked on the SIDE, because that is where the football is drawn and
+         * the strip renders the two sides through one loop — a template asking
+         * "is this the home one?" halfway down a loop is a template doing
+         * arithmetic.
+         */
+        $home = $this->side($game, 'home');
+        $away = $this->side($game, 'away');
+        $home['has_ball'] = $possession === 'home';
+        $away['has_ball'] = $possession === 'away';
+
         return [
             'id' => (int) $game['id'],
             'state' => $state,
@@ -76,10 +92,22 @@ final class Scoreboard
              */
             'period_line' => $this->periodLine($game, $period, $state),
             'clock' => $state === 'live' && $fresh && $clock !== '' ? $clock : null,
+
+            /*
+             * 🚨 Possession only while it is fresh, and only during play.
+             *
+             * A football sitting beside a team is a strong claim — it says
+             * "they have the ball, now". Three minutes after the fact that is
+             * simply wrong, and wrong in the most visible way on the board, so
+             * it goes when the clock goes rather than lingering as decoration.
+             */
+            'possession' => $possession,
+            'down' => $state === 'live' && $fresh ? (trim((string) ($game['down_distance'] ?? '')) ?: null) : null,
+            'red_zone' => $state === 'live' && $fresh && !empty($game['red_zone']),
             'clock_stale' => $state === 'live' && $clockAt > 0 && !$fresh,
             'kickoff' => \Convoro\Engine\Support\Presence::format('D j M, g:ia T', (int) $game['match_at']),
-            'home' => $this->side($game, 'home'),
-            'away' => $this->side($game, 'away'),
+            'home' => $home,
+            'away' => $away,
             'topic_id' => $game['topic_id'] === null ? null : (int) $game['topic_id'],
             'topic_slug' => $game['topic_slug'] ?? null,
         ];
@@ -182,6 +210,7 @@ final class Scoreboard
             "SELECT e.`id`, e.`match_at`, e.`status`, e.`neutral_site`,
                     e.`home_score`, e.`away_score`,
                     e.`period`, e.`clock`, e.`clock_detail`, e.`clock_at`,
+                    e.`possession`, e.`down_distance`, e.`red_zone`,
                     h.`name` AS home_name, h.`abbreviation` AS home_abbr,
                     h.`logo_path` AS home_logo, h.`logo_dark_path` AS home_logo_dark,
                     a.`name` AS away_name, a.`abbreviation` AS away_abbr,

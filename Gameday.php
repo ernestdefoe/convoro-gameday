@@ -78,7 +78,14 @@ final class Gameday extends Module
              * rather than as a card, without a single hardcoded colour and
              * without a light-mode variant to keep in step.
              */
-            . '.gd-board{display:flex;flex-direction:column;gap:0.5rem;padding:0.75rem;'
+            /*
+             * 🚨 Pigskin, and lightened for the ground it sits on. Saddle brown
+             * at #8b4513 is the colour of a football and very nearly the colour
+             * of this panel, so the ball would read as a hole in the board. A
+             * warmer, lighter brown keeps the association and stays visible.
+             */
+            . '.gd-board{--gd-pigskin:#b0703f;'
+            . 'display:flex;flex-direction:column;gap:0.5rem;padding:0.75rem;'
             . 'background:var(--c-chrome-bg);color:var(--c-chrome-ink);'
             . 'border-radius:var(--radius-card);box-shadow:var(--shadow-sm);}'
             . '.gd-strip{display:flex;flex-direction:column;gap:0.35rem;}'
@@ -119,7 +126,19 @@ final class Gameday extends Module
              */
             . '@media (prefers-reduced-motion:reduce){.gd-pip{animation:none;}}'
 
+            /*
+             * Beside the name, not in front of it: the abbreviation is what a
+             * reader is scanning for, and the ball is the answer to a question
+             * they only ask once they have found it.
+             */
+            . '.gd-ball{width:1.05rem;height:0.7rem;margin-left:0.4rem;'
+            . 'vertical-align:baseline;flex:0 0 auto;}'
+
             . '.gd-period{opacity:0.85;}'
+            . '.gd-down{opacity:0.85;font-variant-numeric:tabular-nums;}'
+
+            /* Inside the twenty. Worth saying, and worth saying in one colour. */
+            . '.gd-redzone{color:var(--c-danger-strong,#dc2626);font-weight:700;opacity:1;}'
             . '.gd-clock{margin-left:auto;font-variant-numeric:tabular-nums;opacity:0.85;}'
             . '.gd-final{font-weight:700;text-transform:uppercase;letter-spacing:0.06em;}'
             . '.gd-kickoff{opacity:0.85;}'
@@ -161,6 +180,21 @@ final class Gameday extends Module
             . 'scores[1].textContent=g.home&&g.home.score!==null?g.home.score:"–";'
             . '}'
             . 'set("[data-gameday-period]",g.state==="scheduled"?g.kickoff:g.period_line);'
+            /*
+             * 🚨 The ball MOVES. A refresh that updated the score and left
+             * the football on the team that just punted would be worse than not
+             * drawing one at all, so it is taken off both sides and put back on
+             * whichever the server now says.
+             */
+            . 'var sides=board.querySelectorAll("[data-gameday-side]");'
+            . 'if(sides.length===2){'
+            . 'var ball=[g.away&&g.away.has_ball,g.home&&g.home.has_ball];'
+            . 'for(var i=0;i<2;i++){var mark=sides[i].querySelector(".gd-ball");'
+            . 'if(mark){mark.hidden=!ball[i];}}'
+            . '}'
+            . 'var down=board.querySelector("[data-gameday-down]");'
+            . 'if(down){if(g.down){down.textContent=g.down;down.hidden=false;'
+            . 'down.classList.toggle("gd-redzone",!!g.red_zone);}else{down.hidden=true;}}'
             . 'var clock=board.querySelector("[data-gameday-clock]");'
             . 'if(clock){if(g.clock){clock.textContent=g.clock;clock.hidden=false;}else{clock.hidden=true;}}'
             . 'board.className=board.className.replace(/gd-board-[a-z]+/,"gd-board-"+g.state);'
