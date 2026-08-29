@@ -69,13 +69,121 @@ final class Gameday extends Module
             . '.gameday-record{margin-left:0.25rem;padding:0 0.25rem;border-radius:var(--radius-pill);'
             . 'background:var(--c-hover);color:var(--c-text-muted);font-size:0.7rem;'
             . 'font-variant-numeric:tabular-nums;}'
-            . '.gameday-scoreboard{display:flex;flex-direction:column;gap:0.25rem;}'
-            . '.gameday-teams{display:flex;justify-content:space-between;gap:0.5rem;}'
-            . '.gameday-team{font-weight:600;}'
-            . '.gameday-score{font-variant-numeric:tabular-nums;font-weight:600;}'
-            . '.gameday-when{margin:0.25rem 0 0;color:var(--c-text-muted);font-size:0.8rem;}'
-            . '.gameday-link{font-size:0.8rem;}'
+
+            /*
+             * A BOARD, not a list of two teams.
+             *
+             * Built from the chrome tokens the site header already uses, which
+             * are dark in both themes by design — so this reads as a scoreboard
+             * rather than as a card, without a single hardcoded colour and
+             * without a light-mode variant to keep in step.
+             */
+            . '.gd-board{display:flex;flex-direction:column;gap:0.5rem;padding:0.75rem;'
+            . 'background:var(--c-chrome-bg);color:var(--c-chrome-ink);'
+            . 'border-radius:var(--radius-card);box-shadow:var(--shadow-sm);}'
+            . '.gd-strip{display:flex;flex-direction:column;gap:0.35rem;}'
+            . '.gd-side{display:flex;align-items:center;gap:0.6rem;}'
+            . '.gd-crest{flex:0 0 auto;width:2rem;height:2rem;display:flex;'
+            . 'align-items:center;justify-content:center;}'
+            . '.gd-crest img{max-width:100%;max-height:100%;}'
+            . '.gd-team{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;line-height:1.15;}'
+            . '.gd-abbr{font-weight:700;letter-spacing:0.02em;}'
+
+            /* The full name is the detail that gets cut first on a narrow panel. */
+            . '.gd-name{font-size:0.75rem;opacity:0.62;overflow:hidden;'
+            . 'text-overflow:ellipsis;white-space:nowrap;}'
+
+            /*
+             * Tabular figures, so 7 and 21 occupy the same width and the column
+             * does not jitter every time somebody scores.
+             */
+            . '.gd-score{flex:0 0 auto;min-width:1.75rem;text-align:right;'
+            . 'font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;}'
+            . '.gd-score-none{opacity:0.4;font-weight:500;}'
+
+            . '.gd-status{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;'
+            . 'padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.14);'
+            . 'font-size:0.78rem;}'
+            . '.gd-live{display:inline-flex;align-items:center;gap:0.35rem;'
+            . 'font-weight:700;text-transform:uppercase;letter-spacing:0.06em;}'
+
+            /* The pip is the only thing on the board that moves. */
+            . '.gd-pip{width:0.45rem;height:0.45rem;border-radius:50%;'
+            . 'background:var(--c-danger-strong,#dc2626);animation:gd-pulse 2s ease-in-out infinite;}'
+            . '@keyframes gd-pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}'
+
+            /*
+             * 🚨 Respect a reader who has asked for less movement. A pulsing dot
+             * is decoration; the word LIVE beside it is the information, and it
+             * is still there when the animation is not.
+             */
+            . '@media (prefers-reduced-motion:reduce){.gd-pip{animation:none;}}'
+
+            . '.gd-period{opacity:0.85;}'
+            . '.gd-clock{margin-left:auto;font-variant-numeric:tabular-nums;opacity:0.85;}'
+            . '.gd-final{font-weight:700;text-transform:uppercase;letter-spacing:0.06em;}'
+            . '.gd-kickoff{opacity:0.85;}'
+            . '.gd-link{font-size:0.8rem;color:inherit;text-decoration:underline;'
+            . 'text-underline-offset:2px;opacity:0.85;}'
+            . '.gd-link:hover{opacity:1;}'
             . '</style>');
+
+        /*
+         * 🚨 What makes the board LIVE rather than a photograph of one.
+         *
+         * The score changes while somebody is reading the page, and a rendered
+         * widget has no way to know. This asks the site what the board says
+         * every so often and updates the numbers in place.
+         *
+         * 🚨 It polls THIS site, not ESPN. The provider is asked on a schedule,
+         * by one queue job, at a floor of two minutes — a browser calling out
+         * to a public endpoint once per reader per thirty seconds is how a
+         * quiet Saturday turns into an address that stops answering this site.
+         *
+         * It also stops when nobody is looking, and stops for good once the
+         * game is final: a page left open overnight should not still be asking
+         * at breakfast.
+         */
+        $this->template()->registerHook('body.end', fn (): string => '<script>'
+            . '(function(){'
+            . 'var board=document.querySelector("[data-gameday-board]");'
+            . 'if(!board||!window.fetch){return;}'
+            . 'var every=30000,timer=null;'
+            . 'function stop(){if(timer){clearTimeout(timer);timer=null;}}'
+            . 'function set(sel,value){var el=board.querySelector(sel);'
+            . 'if(el&&value!==null&&value!==undefined&&el.textContent!==String(value)){el.textContent=value;}}'
+            . 'function paint(g){'
+            . 'if(!g){return false;}'
+            . 'var scores=board.querySelectorAll("[data-gameday-score]");'
+            /* Away first, then home — the order the strip renders them in. */
+            . 'if(scores.length===2){'
+            . 'scores[0].textContent=g.away&&g.away.score!==null?g.away.score:"–";'
+            . 'scores[1].textContent=g.home&&g.home.score!==null?g.home.score:"–";'
+            . '}'
+            . 'set("[data-gameday-period]",g.state==="scheduled"?g.kickoff:g.period_line);'
+            . 'var clock=board.querySelector("[data-gameday-clock]");'
+            . 'if(clock){if(g.clock){clock.textContent=g.clock;clock.hidden=false;}else{clock.hidden=true;}}'
+            . 'board.className=board.className.replace(/gd-board-[a-z]+/,"gd-board-"+g.state);'
+            . 'return g.state==="live";'
+            . '}'
+            . 'function tick(){'
+            . 'if(document.hidden){timer=setTimeout(tick,every);return;}'
+            . 'fetch("/gameday/board.json",{headers:{"Accept":"application/json"},credentials:"same-origin"})'
+            . '.then(function(r){return r.ok?r.json():null;})'
+            . '.then(function(d){'
+            . 'var keepGoing=d?paint(d.game):true;'
+            . 'if(keepGoing){timer=setTimeout(tick,every);}else{stop();}'
+            . '})'
+            /* A refresh that fails is not worth telling anybody about; the
+               board simply keeps the last thing it knew and tries again. */
+            . '.catch(function(){timer=setTimeout(tick,every);});'
+            . '}'
+            . 'if(board.className.indexOf("gd-board-live")>-1){timer=setTimeout(tick,every);}'
+            . 'document.addEventListener("visibilitychange",function(){'
+            . 'if(!document.hidden&&!timer&&board.className.indexOf("gd-board-live")>-1){tick();}'
+            . '});'
+            . '}());'
+            . '</script>');
 
         $this->app->make('widget_types')->register('gameday.scoreboard', [
             'label' => 'gameday.widget_label',
@@ -182,6 +290,8 @@ final class Gameday extends Module
             return '';
         }
 
-        return $this->template()->render('gameday::widgets/scoreboard', ['game' => $game]);
+        return $this->template()->render('gameday::widgets/scoreboard', [
+            'board' => $this->app->make('gameday.scoreboard')->shape($game),
+        ]);
     }
 }

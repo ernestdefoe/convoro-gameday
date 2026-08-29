@@ -19,6 +19,121 @@ final class Scoreboard
     }
 
     /**
+     * How long a game clock is still worth printing.
+     *
+     * 🚨 The poll floor is two minutes, on purpose — ESPN's scoreboard is
+     * public and unauthenticated, which is the reason to be gentle with it, not
+     * a reason to hammer it. So a clock here is at best two minutes old, and
+     * "2:41 to play" that is three minutes stale is simply a wrong number
+     * printed in a confident font.
+     *
+     * The PERIOD does not have this problem: a quarter lasts fifteen minutes,
+     * so it is still true long after the clock beside it stopped being. Past
+     * this window the clock is dropped and the period carries the line alone.
+     */
+    public const CLOCK_FRESH_FOR = 180;
+
+    /**
+     * The row, turned into what a scoreboard actually shows.
+     *
+     * 🚨 Decided HERE, not in the template. Whether a clock is still true,
+     * which crest suits which theme, and what the status line should say are
+     * all judgements, and a template language is for choosing what to show
+     * rather than for working out what a thing means. It is also what lets the
+     * page and the refresh endpoint answer identically — they call this.
+     *
+     * @param array<string, mixed> $game
+     * @return array<string, mixed>
+     */
+    public function shape(array $game, ?int $now = null): array
+    {
+        $now ??= time();
+
+        $status = (string) ($game['status'] ?? '');
+        $threadState = (string) ($game['state'] ?? '');
+        $hasScore = $game['home_score'] !== null && $game['away_score'] !== null;
+
+        $state = match (true) {
+            $status === 'finished' && $hasScore => 'final',
+            $threadState === 'live' || $status === 'in_progress' => 'live',
+            default => 'scheduled',
+        };
+
+        $period = (int) ($game['period'] ?? 0);
+        $clockAt = (int) ($game['clock_at'] ?? 0);
+        $fresh = $clockAt > 0 && ($now - $clockAt) <= self::CLOCK_FRESH_FOR;
+        $clock = trim((string) ($game['clock'] ?? ''));
+
+        return [
+            'id' => (int) $game['id'],
+            'state' => $state,
+
+            /*
+             * ESPN's own wording where there is any — "2nd Quarter", "Halftime",
+             * "End of 3rd". Better than anything built from a number here,
+             * because it already knows what a period means in a game that has
+             * gone to overtime.
+             */
+            'period_line' => $this->periodLine($game, $period, $state),
+            'clock' => $state === 'live' && $fresh && $clock !== '' ? $clock : null,
+            'clock_stale' => $state === 'live' && $clockAt > 0 && !$fresh,
+            'kickoff' => \Convoro\Engine\Support\Presence::format('D j M, g:ia T', (int) $game['match_at']),
+            'home' => $this->side($game, 'home'),
+            'away' => $this->side($game, 'away'),
+            'topic_id' => $game['topic_id'] === null ? null : (int) $game['topic_id'],
+            'topic_slug' => $game['topic_slug'] ?? null,
+        ];
+    }
+
+    /** @param array<string, mixed> $game */
+    private function periodLine(array $game, int $period, string $state): string
+    {
+        if ($state === 'final') {
+            // Overtime is worth saying; a regulation finish is just "Final".
+            return $period > 4 ? 'Final / OT' : 'Final';
+        }
+
+        if ($state !== 'live') {
+            return '';
+        }
+
+        $detail = trim((string) ($game['clock_detail'] ?? ''));
+
+        if ($detail !== '') {
+            return $detail;
+        }
+
+        return $period > 0 ? self::ordinal($period) : '';
+    }
+
+    private static function ordinal(int $period): string
+    {
+        return match (true) {
+            $period === 1 => '1st',
+            $period === 2 => '2nd',
+            $period === 3 => '3rd',
+            $period === 4 => '4th',
+            // 5 is the first overtime, 6 the second, and so on.
+            default => 'OT' . ($period > 5 ? (string) ($period - 4) : ''),
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $game
+     * @return array<string, mixed>
+     */
+    private function side(array $game, string $which): array
+    {
+        return [
+            'name' => (string) ($game[$which . '_name'] ?? ''),
+            'abbr' => (string) ($game[$which . '_abbr'] ?? ''),
+            'logo' => (string) ($game[$which . '_logo'] ?? ''),
+            'logo_dark' => (string) ($game[$which . '_logo_dark'] ?? ''),
+            'score' => $game[$which . '_score'] === null ? null : (int) $game[$which . '_score'],
+        ];
+    }
+
+    /**
      * @param  list<int>|null $readableForumIds null means nothing is restricted
      * @return array<string, mixed>|null
      */
@@ -54,8 +169,11 @@ final class Scoreboard
         $rows = $this->db->select(
             "SELECT e.`id`, e.`match_at`, e.`status`, e.`neutral_site`,
                     e.`home_score`, e.`away_score`,
+                    e.`period`, e.`clock`, e.`clock_detail`, e.`clock_at`,
                     h.`name` AS home_name, h.`abbreviation` AS home_abbr,
+                    h.`logo_path` AS home_logo, h.`logo_dark_path` AS home_logo_dark,
                     a.`name` AS away_name, a.`abbreviation` AS away_abbr,
+                    a.`logo_path` AS away_logo, a.`logo_dark_path` AS away_logo_dark,
                     t.`state`, t.`topic_id`, tp.`slug` AS topic_slug, tp.`forum_id`
                FROM `{$threads}` t
                INNER JOIN `{$events}` e ON e.`id` = t.`event_id`

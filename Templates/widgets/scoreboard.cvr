@@ -4,24 +4,76 @@
     🚨 The score is shown without a link when the reader cannot open the forum the
     thread lives in. The score is public; a link into a forum somebody may not read
     is a dead end and a disclosure at once.
+
+    🚨 Everything decided in Scoreboard::shape(). This file chooses what to show
+    and nothing else — which is also what lets the refresh endpoint hand back the
+    same values and update this in place without a reload.
 #}
-<div class="gameday-scoreboard">
-    <div class="gameday-teams">
-        <span class="gameday-team">{{ $game['away_name'] }}</span>
-        @notempty($game['away_score'])<span class="gameday-score">{{ (int) $game['away_score'] }}</span>@endnotempty
+<div class="gd-board gd-board-{{ $board['state'] }}"
+     data-gameday-board
+     data-gameday-game="{{ $board['id'] }}"
+     aria-live="polite">
+
+    <div class="gd-strip">
+        @each ([$board['away'], $board['home']] as $side)
+        <div class="gd-side">
+            @php
+                {#
+                    🚨 The DARK-ground crest, because this board is dark in
+                    both themes — it is built from the same chrome colours the
+                    site header uses, which is what a real scoreboard looks
+                    like. ESPN draws `500` for a light ground and `500-dark`
+                    for a dark one, and laying the light mark on this panel is
+                    how a navy crest becomes a navy smudge.
+
+                    No theme swap is needed precisely BECAUSE the panel does
+                    not change with the theme.
+                #}
+                $crest = $side['logo_dark'] ?: $side['logo'];
+            @endphp
+
+            <span class="gd-crest">
+                @notempty($crest)
+                <img src="{{ $crest }}" alt="" loading="lazy" referrerpolicy="no-referrer">
+                @endnotempty
+            </span>
+
+            <span class="gd-team">
+                <span class="gd-abbr">{{ $side['abbr'] ?: $side['name'] }}</span>
+                <span class="gd-name">{{ $side['name'] }}</span>
+            </span>
+
+            @if($side['score'] !== null)
+            <span class="gd-score" data-gameday-score>{{ $side['score'] }}</span>
+            @endif
+            @if($side['score'] === null)
+            <span class="gd-score gd-score-none" data-gameday-score>&ndash;</span>
+            @endif
+        </div>
+        @endeach
     </div>
 
-    <div class="gameday-teams">
-        <span class="gameday-team">{{ $game['home_name'] }}</span>
-        @notempty($game['home_score'])<span class="gameday-score">{{ (int) $game['home_score'] }}</span>@endnotempty
+    <div class="gd-status">
+        @if($board['state'] === 'live')
+        <span class="gd-live"><span class="gd-pip" aria-hidden="true"></span>@lang('gameday.playing_now')</span>
+        @notempty($board['period_line'])
+        <span class="gd-period" data-gameday-period>{{ $board['period_line'] }}</span>
+        @endnotempty
+        @notempty($board['clock'])
+        <span class="gd-clock" data-gameday-clock>{{ $board['clock'] }}</span>
+        @endnotempty
+        @endif
+
+        @if($board['state'] === 'final')
+        <span class="gd-final" data-gameday-period>{{ $board['period_line'] }}</span>
+        @endif
+
+        @if($board['state'] === 'scheduled')
+        <span class="gd-kickoff" data-gameday-period>{{ $board['kickoff'] }}</span>
+        @endif
     </div>
 
-    <p class="gameday-when">
-        @if($game['state'] === 'live')@lang('gameday.playing_now')@endif
-        @if($game['state'] !== 'live'){{ \Convoro\Engine\Support\Presence::format('D j M, g:ia T', (int) $game['match_at']) }}@endif
-    </p>
-
-    @notempty($game['topic_id'])
-    <a class="gameday-link" href="/topic/{{ $game['topic_id'] }}-{{ $game['topic_slug'] }}">@lang('gameday.to_the_thread')</a>
+    @notempty($board['topic_id'])
+    <a class="gd-link" href="/topic/{{ $board['topic_id'] }}-{{ $board['topic_slug'] }}">@lang('gameday.to_the_thread')</a>
     @endnotempty
 </div>
