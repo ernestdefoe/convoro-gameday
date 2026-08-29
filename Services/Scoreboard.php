@@ -99,8 +99,20 @@ final class Scoreboard
 
         $detail = trim((string) ($game['clock_detail'] ?? ''));
 
+        /*
+         * 🚨 ESPN's short detail already carries the clock — "5:44 - 2nd".
+         * The clock has its own place on the strip, so printing this whole
+         * would say 5:44 twice, and the second one would go stale while the
+         * first was being dropped for exactly that reason.
+         *
+         * Everything after the dash is the part worth keeping. Where there is
+         * no dash the whole thing is the period and says something a number
+         * cannot: "Halftime", "End of 3rd".
+         */
         if ($detail !== '') {
-            return $detail;
+            $dash = strpos($detail, ' - ');
+
+            return $dash === false ? $detail : trim(substr($detail, $dash + 3));
         }
 
         return $period > 0 ? self::ordinal($period) : '';

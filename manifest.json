@@ -1,7 +1,7 @@
 {
     "key": "gameday",
     "name": "Game Day",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "A thread for every game, opened before kickoff, live while it is played, and kept afterwards with the score. Reads the fixtures Picks already syncs, so nothing here reaches CollegeFootballData.",
     "author": "Ernest Defoe",
     "convoro": "^1.29.2",
