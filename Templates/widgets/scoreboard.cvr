@@ -38,9 +38,17 @@
                 @endnotempty
             </span>
 
+            {#
+                🚨 The name only when it says something the abbreviation did
+                not. Plenty of teams ARE their abbreviation — TCU, UCLA, SMU —
+                and printing both gives "TCU" twice, one under the other, which
+                reads as a bug because it is one.
+            #}
             <span class="gd-team">
                 <span class="gd-abbr">{{ $side['abbr'] ?: $side['name'] }}</span>
+                @if($side['abbr'] !== '' && $side['name'] !== '' && $side['abbr'] !== $side['name'])
                 <span class="gd-name">{{ $side['name'] }}</span>
+                @endif
             </span>
 
             @if($side['score'] !== null)
