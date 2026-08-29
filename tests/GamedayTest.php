@@ -290,7 +290,36 @@ return [
 
             // Scores in, but unconfirmed.
             $db->table('picks_events')->where('id', $id)->updateAll([
-                'status' => 'final', 'home_score' => 24, 'away_score' => 21, 'confirmed_at' => 0,
+                'status' => 'finished', 'home_score' => 24, 'away_score' => 21, 'confirmed_at' => 0,
+            ]);
+
+            /*
+             * 🚨 A SCORE IS NOT A RESULT.
+             *
+             * This is the one that got out. A game in progress, with a
+             * confirmed score, must stay live: the condition used to ask only
+             * for two scores and a confirmation, which is the same sentence as
+             * "the game is over" only if a score never arrives mid-game.
+             *
+             * On FBSFB the first live score ever recorded was 10-10 in the
+             * second quarter, and every gameday thread with a score was
+             * resolved seconds later with a recap announcing a tie.
+             */
+            $db->table('picks_events')->where('id', $id)->updateAll([
+                'status' => 'in_progress',
+                'home_score' => 10,
+                'away_score' => 10,
+                'confirmed_at' => time(),
+            ]);
+
+            assertSame(0, $threads()->resolve(), 'a score in the second quarter does not end the game');
+
+            $stillLive = $threadFor($id);
+            assertSame('live', (string) $stillLive['state'], 'and the thread is still live');
+
+            // Back to the case the rest of this test is about.
+            $db->table('picks_events')->where('id', $id)->updateAll([
+                'status' => 'finished', 'home_score' => 24, 'away_score' => 21, 'confirmed_at' => 0,
             ]);
 
             assertSame(0, $threads()->resolve(), 'final on the feed is not the same as settled');
@@ -321,7 +350,7 @@ return [
             $openerBefore = (string) $opener['content_html'];
 
             $db->table('picks_events')->where('id', $id)->updateAll([
-                'match_at' => time() - 3600, 'status' => 'final',
+                'match_at' => time() - 3600, 'status' => 'finished',
                 'home_score' => 31, 'away_score' => 28, 'confirmed_at' => time(),
             ]);
 

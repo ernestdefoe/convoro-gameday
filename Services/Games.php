@@ -83,8 +83,28 @@ final class Games
      */
     public function dueToResolve(int $limit = 20): array
     {
+        /*
+         * 🚨 A SCORE IS NOT A RESULT. The feed has to say the game is over.
+         *
+         * This asked only for two scores and a confirmation, which reads "we
+         * have heard a score" as "the game has finished" — and those are the
+         * same sentence only if a score never arrives mid-game. Scores never
+         * did arrive, because every fetch had been refused with a 403 since the
+         * day this was written, so the condition looked correct for a whole
+         * off-season.
+         *
+         * The first live score this site ever recorded was North Carolina 10,
+         * TCU 10 in the second quarter. Seconds later every gameday thread with
+         * a score was declared over, the threads were resolved, and a recap
+         * went out announcing a tie — of a game still being played, at a score
+         * football does not even end on.
+         *
+         * `finished` is the only status that means finished.
+         */
         return $this->select(
-            "AND t.`state` IN ('open', 'live') AND e.`confirmed_at` > 0
+            "AND t.`state` IN ('open', 'live')
+             AND e.`status` = 'finished'
+             AND e.`confirmed_at` > 0
              AND e.`home_score` IS NOT NULL AND e.`away_score` IS NOT NULL
              ORDER BY e.`match_at` ASC
              LIMIT " . max(1, min(50, $limit))
