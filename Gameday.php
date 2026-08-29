@@ -263,7 +263,11 @@ final class Gameday extends Module
              * opened, and doing it in this order means one tick can carry a thread
              * all the way through if it has to.
              */
-            return $threads->resolve() + $threads->start() + $threads->open();
+            /*
+             * Resolve, then start, then open, then put back anything core's
+             * cool-off ended while the game is still being played.
+             */
+            return $threads->resolve() + $threads->start() + $threads->open() + $threads->sustain();
         });
 
         $this->schedule()->minutely('gameday.tick');

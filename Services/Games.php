@@ -111,6 +111,25 @@ final class Games
         );
     }
 
+    /**
+     * Games being played whose thread is meant to be live.
+     *
+     * The mirror of `dueToResolve()`: that one asks who has finished, this asks
+     * who has not. Both lean on the game's own status rather than on anything
+     * about the thread, because the game is what decides.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function stillPlaying(int $limit = 20): array
+    {
+        return $this->select(
+            "AND t.`state` = 'live'
+             AND e.`status` = 'in_progress'
+             ORDER BY e.`match_at` ASC
+             LIMIT " . max(1, min(50, $limit))
+        );
+    }
+
     /** One game with its teams and its thread, if it has one. */
     public function find(int $eventId): ?array
     {

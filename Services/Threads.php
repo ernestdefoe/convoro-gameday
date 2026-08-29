@@ -84,6 +84,53 @@ final class Threads
         return $started;
     }
 
+    /**
+     * Keep a thread live for as long as the game is being played.
+     *
+     * 🚨 A gameday thread is live because the GAME is on, not because
+     * people are talking in it — and core's auto-resolve cannot know that. It
+     * ends any live topic that has gone quiet, which is right for a topic that
+     * went live by getting hot and wrong for one put live by a kickoff: a
+     * thread nobody has posted in yet is the ordinary state of a game thread
+     * at 12:04, and at halftime.
+     *
+     * FBSFB's North Carolina vs TCU thread was resolved twice this way — once
+     * seconds after kickoff, and again at halftime, both times while the game
+     * was still being played. So each tick puts back what the sweep took.
+     *
+     * 🚨 Deliberately NOT a change to `Live::cool()`. Cooling an idle live
+     * topic is correct and is what stops one sitting live for ever; the thing
+     * core is missing is not a weaker rule, it is that something else owns this
+     * topic's state. Re-asserting it every minute says exactly that, and says
+     * it without weakening the rule for everybody else.
+     *
+     * @return int how many were put back
+     */
+    public function sustain(): int
+    {
+        $live = Convoro::getInstance()->make('forum.live');
+        $restored = 0;
+
+        foreach ($this->games->stillPlaying() as $game) {
+            $topicId = (int) $game['topic_id'];
+            $topic = $this->db->table('topics')->where('id', $topicId)->first();
+
+            if ($topic === null || (string) $topic['live_state'] === 'live') {
+                continue;
+            }
+
+            /*
+             * `false`, so it is never mistaken for a topic that went live by
+             * getting hot — that flag is what the front end reads to explain
+             * itself to a moderator.
+             */
+            $live->start($topicId, false);
+            $restored++;
+        }
+
+        return $restored;
+    }
+
     /** Resolve finished games and leave the score behind. Returns how many. */
     public function resolve(): int
     {
