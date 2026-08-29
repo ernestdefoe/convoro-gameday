@@ -45,7 +45,7 @@
                 reads as a bug because it is one.
             #}
             <span class="gd-team">
-                <span class="gd-abbr">{{ $side['abbr'] ?: $side['name'] }}<svg class="gd-ball" @if(empty($side['has_ball']))hidden @endif viewBox="0 0 24 16" role="img" aria-label="@lang('gameday.has_the_ball')"><ellipse cx="12" cy="8" rx="11" ry="7" fill="var(--gd-pigskin)"></ellipse></svg></span>
+                <span class="gd-abbr">{{ $side['abbr'] ?: $side['name'] }}<svg class="gd-ball @if(empty($side['has_ball']))gd-ball-off @endif" viewBox="0 0 24 16" role="img" aria-label="@lang('gameday.has_the_ball')"><ellipse cx="12" cy="8" rx="11" ry="7" fill="var(--gd-pigskin)"></ellipse></svg></span>
                 @if($side['abbr'] !== '' && $side['name'] !== '' && $side['abbr'] !== $side['name'])
                 <span class="gd-name">{{ $side['name'] }}</span>
                 @endif

@@ -91,7 +91,12 @@ final class Scoreboard
              * gone to overtime.
              */
             'period_line' => $this->periodLine($game, $period, $state),
-            'clock' => $state === 'live' && $fresh && $clock !== '' ? $clock : null,
+            /*
+             * 🚨 Not at a period boundary. Between quarters and at half the
+             * feed sends a stopped "0:00", and printing it beside "Halftime"
+             * says the same thing twice in a way that looks like a fault.
+             */
+            'clock' => $state === 'live' && $fresh && $clock !== '' && $clock !== '0:00' ? $clock : null,
 
             /*
              * 🚨 Possession only while it is fresh, and only during play.
@@ -102,7 +107,15 @@ final class Scoreboard
              * it goes when the clock goes rather than lingering as decoration.
              */
             'possession' => $possession,
-            'down' => $state === 'live' && $fresh ? (trim((string) ($game['down_distance'] ?? '')) ?: null) : null,
+            /*
+             * 🚨 Only while somebody actually has the ball. The feed keeps
+             * sending the last down through halftime, so this printed
+             * "1st & Goal" beside "Halftime" — a down nobody was playing. A
+             * down without a possession is not a fact about the game.
+             */
+            'down' => $possession !== null && $fresh
+                ? (trim((string) ($game['down_distance'] ?? '')) ?: null)
+                : null,
             'red_zone' => $state === 'live' && $fresh && !empty($game['red_zone']),
             'clock_stale' => $state === 'live' && $clockAt > 0 && !$fresh,
             'kickoff' => \Convoro\Engine\Support\Presence::format('D j M, g:ia T', (int) $game['match_at']),

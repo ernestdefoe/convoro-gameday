@@ -131,6 +131,7 @@ final class Gameday extends Module
              * reader is scanning for, and the ball is the answer to a question
              * they only ask once they have found it.
              */
+            . '.gd-ball-off{display:none;}'
             . '.gd-ball{width:1.05rem;height:0.7rem;margin-left:0.4rem;'
             . 'vertical-align:baseline;flex:0 0 auto;}'
 
@@ -190,13 +191,14 @@ final class Gameday extends Module
             . 'if(sides.length===2){'
             . 'var ball=[g.away&&g.away.has_ball,g.home&&g.home.has_ball];'
             . 'for(var i=0;i<2;i++){var mark=sides[i].querySelector(".gd-ball");'
-            . 'if(mark){mark.hidden=!ball[i];}}'
+            . 'if(mark){mark.classList.toggle("gd-ball-off",!ball[i]);}}'
             . '}'
             . 'var down=board.querySelector("[data-gameday-down]");'
-            . 'if(down){if(g.down){down.textContent=g.down;down.hidden=false;'
-            . 'down.classList.toggle("gd-redzone",!!g.red_zone);}else{down.hidden=true;}}'
+            . 'if(down){if(g.down){down.textContent=g.down;down.classList.remove("gd-ball-off");'
+            . 'down.classList.toggle("gd-redzone",!!g.red_zone);}else{down.classList.add("gd-ball-off");}}'
             . 'var clock=board.querySelector("[data-gameday-clock]");'
-            . 'if(clock){if(g.clock){clock.textContent=g.clock;clock.hidden=false;}else{clock.hidden=true;}}'
+            . 'if(clock){if(g.clock){clock.textContent=g.clock;clock.classList.remove("gd-ball-off");}'
+            . 'else{clock.classList.add("gd-ball-off");}}'
             . 'board.className=board.className.replace(/gd-board-[a-z]+/,"gd-board-"+g.state);'
             . 'return g.state==="live";'
             . '}'
