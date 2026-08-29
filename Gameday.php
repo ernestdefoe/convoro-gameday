@@ -241,7 +241,16 @@ final class Gameday extends Module
         $this->app->make('page_block_types')->register('gameday.scoreboard', [
             'label' => 'gameday.widget_label',
             'group' => 'gameday.name',
-            'render' => fn (array $settings, string $content): string => $this->scoreboard(),
+            /*
+             * 🚨 The TOPIC's game, not whatever is on right now.
+             *
+             * A panel page is shared by every game thread — the pointer is a
+             * site setting, so there is no per-thread block to configure. With
+             * no topic passed, this rendered `current()` and every thread's
+             * companion panel showed the same game: the one that kicked off
+             * first. The scoreboard sat beside a thread it was not about.
+             */
+            'render' => fn (array $settings, string $content): string => $this->scoreboard($this->contextTopicId()),
         ]);
 
         /*
@@ -309,7 +318,24 @@ final class Gameday extends Module
      * than no scoreboard: it takes permanent space to say nothing, and on a Tuesday
      * in June that is every page view.
      */
-    private function scoreboard(): string
+    /**
+     * @param int|null $topicId when given, the game that topic is about; a
+     *                          topic with no game falls back to what is on now
+     */
+    /**
+     * The topic this render is happening inside, or null off a topic page.
+     * `widgetContext` is the channel the forum already shares for exactly this
+     * (it carries the forum id for widget placement rules).
+     */
+    private function contextTopicId(): ?int
+    {
+        $context = (array) $this->app->make('template')->shared('widgetContext', []);
+        $topicId = (int) ($context['topic_id'] ?? 0);
+
+        return $topicId > 0 ? $topicId : null;
+    }
+
+    private function scoreboard(?int $topicId = null): string
     {
         if (!$this->app->make('gameday.games')->available()) {
             return '';
@@ -324,7 +350,15 @@ final class Gameday extends Module
             array_map('intval', (array) $this->app->make('template')->shared('viewerGroupIds', []))
         );
 
-        $game = $this->app->make('gameday.scoreboard')->current($readable);
+        $scoreboard = $this->app->make('gameday.scoreboard');
+
+        $game = $topicId !== null && $topicId > 0
+            ? $scoreboard->forTopic($topicId, $readable)
+            : null;
+
+        // Not a game thread (or the thread has no event yet) — the sidebar
+        // behaviour is still the right one.
+        $game ??= $scoreboard->current($readable);
 
         if ($game === null) {
             return '';

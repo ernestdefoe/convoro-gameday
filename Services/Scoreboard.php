@@ -203,6 +203,44 @@ final class Scoreboard
          * lives in — the score itself is public, but a link into a forum somebody
          * may not read is both a dead end and a disclosure that it exists.
          */
+        return $this->withLinkVisibility($game, $readableForumIds);
+    }
+
+    /**
+     * The game belonging to ONE topic.
+     *
+     * A scoreboard rendered beside a thread has to be about THAT thread's game.
+     * current() answers "what is on right now" across the whole site, which is
+     * the right answer for a sidebar and the wrong one for a companion panel:
+     * every game thread showed whichever game happened to kick off first.
+     *
+     * @param  list<int>|null $readableForumIds null means nothing is restricted
+     * @return array<string, mixed>|null
+     */
+    public function forTopic(int $topicId, ?array $readableForumIds): ?array
+    {
+        if ($topicId <= 0) {
+            return null;
+        }
+
+        // Cast, not bound: pick() takes a WHERE fragment, and an int cast
+        // leaves nothing for a caller to inject.
+        $game = $this->pick('t.`topic_id` = ' . $topicId);
+
+        if ($game === null) {
+            return null;
+        }
+
+        return $this->withLinkVisibility($game, $readableForumIds);
+    }
+
+    /**
+     * @param  array<string, mixed> $game
+     * @param  list<int>|null $readableForumIds
+     * @return array<string, mixed>
+     */
+    private function withLinkVisibility(array $game, ?array $readableForumIds): array
+    {
         if ($readableForumIds !== null && !in_array((int) $game['forum_id'], $readableForumIds, true)) {
             $game['topic_id'] = null;
             $game['topic_slug'] = null;
