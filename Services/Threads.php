@@ -289,11 +289,24 @@ final class Threads
         return trim((string) $game['away_name']) . $joiner . trim((string) $game['home_name']);
     }
 
+    /**
+     * 🚨 The site's timezone, named in the line itself.
+     *
+     * This is WRITTEN INTO a post rather than rendered, so there is no reader
+     * to ask and it cannot be per-viewer: whatever goes in here is what
+     * everybody sees for good. `date()` put it in the process timezone, which
+     * is UTC on any install that has not changed it — so a noon kickoff in
+     * Chapel Hill was posted as "4:00pm" and stayed wrong in the archive.
+     *
+     * The zone is printed alongside the time because a bare "12:00pm" in a
+     * post read from another country says nothing.
+     */
     private function kickoffLine(array $game): string
     {
         $at = (int) $game['match_at'];
+        $zone = \Convoro\Engine\Http\Middleware\ApplyTimezone::site();
 
-        return 'Kickoff ' . date('l j F, g:ia', $at) . '.';
+        return 'Kickoff ' . \Convoro\Engine\Support\Presence::inZone($zone, 'l j F, g:ia T', $at) . '.';
     }
 
     /** @param list<array<string, mixed>> $paragraphs */

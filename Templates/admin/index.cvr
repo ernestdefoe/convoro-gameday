@@ -46,7 +46,7 @@
                 @each ($upcoming as $game)
                 <tr>
                     <td>{{ $game['away_name'] }}@if($game['neutral_site']) vs @endif@if(!$game['neutral_site']) at @endif{{ $game['home_name'] }}</td>
-                    <td>{{ date('D j M, g:ia', (int) $game['match_at']) }}</td>
+                    <td>{{ \Convoro\Engine\Support\Presence::format('D j M, g:ia T', (int) $game['match_at']) }}</td>
                     <td>
                         @empty($game['state'])
                         <span class="admin-hint">@lang('gameday.thread_none')</span>

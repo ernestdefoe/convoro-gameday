@@ -18,7 +18,7 @@
 
     <p class="gameday-when">
         @if($game['state'] === 'live')@lang('gameday.playing_now')@endif
-        @if($game['state'] !== 'live'){{ date('D j M, g:ia', (int) $game['match_at']) }}@endif
+        @if($game['state'] !== 'live'){{ \Convoro\Engine\Support\Presence::format('D j M, g:ia T', (int) $game['match_at']) }}@endif
     </p>
 
     @notempty($game['topic_id'])
