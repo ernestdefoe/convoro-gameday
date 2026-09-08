@@ -122,6 +122,97 @@ $score = static function (int $userId, int $seasonId, int $weekId, int $correct,
 };
 
 return [
+    /*
+     * 🚨 The recap gains its statistics without a second post.
+     *
+     * This exists because the first version of `enrich()` called a method on
+     * `Games` that does not exist — `byId()` rather than `find()` — which every
+     * other test passed straight over, because nothing exercised the hourly
+     * pass. It was found by running it against live data on fbsfb.com, where it
+     * was a fatal error in a scheduled job: the recap would have stayed the
+     * score for ever and nothing would have said why.
+     *
+     * So the assertion is not really about the words. It is that this path RUNS.
+     */
+    'a recap gains its statistics in place when the box score arrives' => function () use (
+        $threads, $db, $team, $game, $forum, $setting, $sweep
+    ): void {
+        try {
+            $setting('gameday_enabled', '1');
+            $setting('gameday_recaps', '1');
+
+            $forumId = $forum('Games');
+            $home = $team('Home', $forumId);
+            $away = $team('Away');
+
+            /*
+             * The real lifecycle, in order. A game that is already finished
+             * never gets a thread opened — deliberately, or installing this
+             * mid-season would post one for every game ever played — so the
+             * test has to play it forwards like the schedule does.
+             */
+            $id = $game($home, $away, time() + 600);
+
+            $threads()->open();
+
+            $db->table('picks_events')->where('id', $id)->updateAll([
+                'match_at' => time() - 7200,
+                'status' => 'finished',
+                'home_score' => 41,
+                'away_score' => 13,
+                'result' => 'home',
+                'confirmed_at' => time() - 3600,
+            ]);
+
+            $threads()->start();
+            $threads()->resolve();
+
+            $row = $db->table('gameday_threads')->where('event_id', $id)->first();
+
+            assertTrue($row !== null, 'the game should have a thread');
+            assertTrue($row['recap_post_id'] !== null, 'and a recap');
+            assertTrue($row['stats_at'] === null, 'which has no statistics in it yet');
+
+            $before = $db->table('posts')->where('id', (int) $row['recap_post_id'])->first();
+            assertFalse(str_contains((string) $before['content_plain'], 'out-gained'));
+
+            $posts = (int) $db->table('posts')->where('topic_id', (int) $row['topic_id'])->count();
+
+            // Now the provider catches up.
+            $db->table('picks_box_scores')->insertGetId([
+                'event_id' => $id,
+                'payload' => json_encode([
+                    'game' => 1,
+                    'home' => ['team' => 'Home', 'points' => 41,
+                        'stats' => ['totalYards' => '350', 'turnovers' => '0'], 'leaders' => []],
+                    'away' => ['team' => 'Away', 'points' => 13,
+                        'stats' => ['totalYards' => '284', 'turnovers' => '2'], 'leaders' => []],
+                ]),
+                'fetched_at' => date('Y-m-d H:i:s'),
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            assertSame(1, $threads()->enrich(), 'the pass should rewrite exactly one recap');
+
+            $after = $db->table('posts')->where('id', (int) $row['recap_post_id'])->first();
+
+            assertTrue(str_contains((string) $after['content_plain'], 'out-gained'), (string) $after['content_plain']);
+
+            // 🚨 Rewritten IN PLACE. A second post would be noise, and it is the
+            // difference between filling a recap out and starting another one.
+            assertSame($posts, (int) $db->table('posts')->where('topic_id', (int) $row['topic_id'])->count());
+
+            $done = $db->table('gameday_threads')->where('event_id', $id)->first();
+            assertTrue($done['stats_at'] !== null, 'and it is not looked at again');
+            assertSame(0, $threads()->enrich());
+
+            $db->table('picks_box_scores')->where('event_id', $id)->deleteAll();
+        } finally {
+            $sweep();
+        }
+    },
+
     'a member with no picks wears no record at all' => static function () use ($records): void {
         /*
          * 🚨 Null, not `0–0`. A zero record is a claim about how somebody is doing;

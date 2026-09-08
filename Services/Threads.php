@@ -341,7 +341,7 @@ final class Threads
                 continue;
             }
 
-            $game = $this->games->byId($eventId);
+            $game = $this->games->find($eventId);
 
             if ($game === null) {
                 continue;
