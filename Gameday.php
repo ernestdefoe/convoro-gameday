@@ -44,10 +44,26 @@ final class Gameday extends Module
             $this->app->make('db'),
         ));
 
+        /*
+         * 🚨 Read-only, like `Games`. Picks owns the provider, the API key and
+         * the monthly call budget; this side reads what it has synced. A second
+         * place that could reach collegefootballdata.com is a second place the
+         * budget is not enforced.
+         */
+        $this->app->singleton('gameday.box_score', fn (): Services\BoxScore => new Services\BoxScore(
+            $this->app->make('db'),
+        ));
+
+        // No dependencies at all: the recap is a function of a game and its box
+        // score, which is what makes what it writes readable in a test.
+        $this->app->singleton('gameday.recap', fn (): Services\Recap => new Services\Recap());
+
         $this->app->singleton('gameday.threads', fn (): Services\Threads => new Services\Threads(
             $this->app->make('db'),
             $this->app->make('gameday.games'),
             $this->app->make('gameday.settings'),
+            $this->app->make('gameday.box_score'),
+            $this->app->make('gameday.recap'),
         ));
     }
 
@@ -282,6 +298,23 @@ final class Gameday extends Module
         });
 
         $this->schedule()->minutely('gameday.tick');
+
+        /*
+         * 🚨 Hourly, and separate from the minutely tick on purpose.
+         *
+         * A recap is posted the moment a game settles, and the box score does
+         * not exist yet — the provider publishes it minutes to hours after the
+         * final whistle. So the score goes up at once and this fills the post
+         * out when the statistics land, which is a different cadence to
+         * everything the tick does and would otherwise run sixty times an hour
+         * to do nothing.
+         */
+        $this->app->make('queue')->handle(
+            'gameday.enrich',
+            fn (): array => ['enriched' => $this->app->make('gameday.threads')->enrich()],
+        );
+
+        $this->schedule()->hourly('gameday.enrich');
 
         /*
          * The record beside the name.

@@ -1,8 +1,8 @@
 {
     "key": "gameday",
     "name": "Game Day",
-    "version": "1.3.1",
-    "description": "A thread for every game, opened before kickoff, live while it is played, and kept afterwards with the score. Reads the fixtures Picks already syncs, so nothing here reaches CollegeFootballData.",
+    "version": "1.4.0",
+    "description": "A thread for every game, opened before kickoff, live while it is played, and kept afterwards with a recap that says how the game was won — the score, the yardage, the turnovers, and the players worth naming. Reads the fixtures and box scores Picks already syncs, so nothing here reaches CollegeFootballData.",
     "author": "Ernest Defoe",
     "convoro": "^1.29.2",
     "requires": [

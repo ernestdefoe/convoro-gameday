@@ -21,10 +21,23 @@ use Convoro\Engine\Support\TipTapRenderer;
  */
 final class Threads
 {
+    /**
+     * How long after a game a recap is still worth rewriting.
+     *
+     * Matches the window Picks keeps trying to fetch a box score in — past it,
+     * one has either arrived or is not coming.
+     */
+    private const STATS_WINDOW_HOURS = 48;
+
+    /** Recaps rewritten in one pass, so an hourly tick cannot run long. */
+    private const ENRICH_BATCH = 40;
+
     public function __construct(
         private Connection $db,
         private Games $games,
         private Settings $settings,
+        private BoxScore $boxScore,
+        private Recap $recaps,
     ) {
     }
 
@@ -146,11 +159,20 @@ final class Threads
                 ? $this->recap($game, $topicId)
                 : null;
 
+            /*
+             * 🚨 `stats_at` is set only when the recap already HAS statistics —
+             * which happens when a game settles late enough that Picks got the
+             * box score first. Leaving it null the rest of the time is what
+             * puts the thread in front of `enrich()`.
+             */
             $this->db->table('gameday_threads')
                 ->where('event_id', (int) $game['id'])
                 ->updateAll([
                     'state' => 'resolved',
                     'recap_post_id' => $postId,
+                    'stats_at' => $postId !== null && $this->recaps->usable(
+                        $this->boxScore->forEvent((int) $game['id'])
+                    ) ? date('Y-m-d H:i:s') : null,
                     'resolved_at' => date('Y-m-d H:i:s'),
                     'updated_at' => date('Y-m-d H:i:s'),
                 ]);
@@ -278,28 +300,83 @@ final class Threads
         });
     }
 
+    /**
+     * Rewrites recaps that were posted before the box score arrived.
+     *
+     * 🚨 The recap goes up the moment a game settles, when the statistics do
+     * not exist yet — the provider publishes them minutes to hours later.
+     * Waiting would delay the final score, which is the one thing everybody in
+     * the thread is waiting for; a second post would be noise. So the first
+     * post is the score and this fills it out in place.
+     *
+     * 🚨 It gives up after a while. A game the provider never covered would
+     * otherwise be re-examined every hour for ever, and a recap that never
+     * gains statistics is a perfectly good recap — it is the one every game
+     * got before any of this existed.
+     *
+     * @return int recaps rewritten in this pass
+     */
+    public function enrich(?int $now = null): int
+    {
+        if (!$this->settings->recaps() || !$this->boxScore->available()) {
+            return 0;
+        }
+
+        $now ??= time();
+        $rewritten = 0;
+
+        $waiting = $this->db->table('gameday_threads')
+            ->where('state', 'resolved')
+            ->whereNull('stats_at')
+            ->whereNotNull('recap_post_id')
+            ->where('resolved_at', '>', date('Y-m-d H:i:s', $now - (self::STATS_WINDOW_HOURS * 3600)))
+            ->limit(self::ENRICH_BATCH)
+            ->get();
+
+        foreach ($waiting as $row) {
+            $eventId = (int) $row['event_id'];
+            $box = $this->boxScore->forEvent($eventId);
+
+            if (!$this->recaps->usable($box)) {
+                continue;
+            }
+
+            $game = $this->games->byId($eventId);
+
+            if ($game === null) {
+                continue;
+            }
+
+            $this->rewrite((int) $row['recap_post_id'], $this->recaps->document($game, $box));
+
+            $this->db->table('gameday_threads')->where('id', (int) $row['id'])->updateAll([
+                'stats_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $rewritten++;
+        }
+
+        return $rewritten;
+    }
+
+    /** Replaces a post's body, leaving everything else about it alone. */
+    private function rewrite(int $postId, array $body): void
+    {
+        $html = (new TipTapRenderer())->render($body);
+
+        $this->db->table('posts')->where('id', $postId)->updateAll([
+            'content' => json_encode($body),
+            'content_html' => $html,
+            'content_plain' => trim(strip_tags($html)),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
     /** The score, as a post somebody returning on Sunday actually reads. */
     private function recap(array $game, int $topicId): ?int
     {
-        $home = (int) $game['home_score'];
-        $away = (int) $game['away_score'];
-
-        $winner = $home === $away
-            ? 'It finished level.'
-            : ($home > $away
-                ? $game['home_name'] . ' won it.'
-                : $game['away_name'] . ' won it.');
-
-        $body = $this->document([
-            $this->line(sprintf(
-                'Final: %s %d, %s %d.',
-                (string) $game['home_name'],
-                $home,
-                (string) $game['away_name'],
-                $away
-            )),
-            $this->line($winner . ' The thread is an ordinary topic again now — still here, still searchable.'),
-        ]);
+        $body = $this->recaps->document($game, $this->boxScore->forEvent((int) $game['id']));
 
         $renderer = new TipTapRenderer();
         $html = $renderer->render($body);
