@@ -136,6 +136,44 @@ return [
         assertFalse(str_contains($text, 'once picked off'));
     },
 
+    'a player who leads two categories is named once' => function () use ($read) {
+        /*
+         * 🚨 A dual-threat quarterback is ordinary in college football, and
+         * before this the recap named him twice in the same sentence as though
+         * he were two people. Found on a real game — Washington's Demond
+         * Williams Jr., who led both passing and rushing — the day this
+         * shipped.
+         */
+        $text = $read((new Recap())->document(
+            ['home_name' => 'Washington', 'away_name' => 'Washington State',
+             'home_score' => 24, 'away_score' => 10],
+            [
+                'home' => [
+                    'team' => 'Washington', 'points' => 24,
+                    'stats' => ['totalYards' => '402'],
+                    'leaders' => [
+                        'passing' => ['name' => 'Demond Williams Jr.',
+                            'stats' => ['C/ATT' => '24/35', 'YDS' => '268', 'TD' => '1', 'INT' => '0']],
+                        'rushing' => ['name' => 'Demond Williams Jr.',
+                            'stats' => ['CAR' => '7', 'YDS' => '61', 'TD' => '1']],
+                        'receiving' => ['name' => 'Chris Lawson',
+                            'stats' => ['REC' => '4', 'YDS' => '87', 'TD' => '0']],
+                    ],
+                ],
+                'away' => ['team' => 'Washington State', 'points' => 10,
+                    'stats' => ['totalYards' => '242'], 'leaders' => []],
+            ],
+        ));
+
+        assertTrue(str_contains(
+            $text,
+            'Demond Williams Jr. 24/35 for 268 and a touchdown, and 7 carries for 61 and a touchdown'
+        ), $text);
+
+        assertSame(1, substr_count($text, 'Demond Williams Jr.'), 'named once, not once per category');
+        assertTrue(str_contains($text, 'Chris Lawson 4 catches for 87'), 'and everybody else still appears');
+    },
+
     'the comparison table carries the figures that explain a game' => function () use ($game, $box) {
         $html = (new TipTapRenderer())->render((new Recap())->document($game, $box));
 

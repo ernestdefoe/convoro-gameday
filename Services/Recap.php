@@ -229,7 +229,21 @@ final class Recap
      */
     private function leaderLine(array $leaders): string
     {
-        $parts = [];
+        /*
+         * 🚨 Grouped by PLAYER, not listed by category.
+         *
+         * A dual-threat quarterback leads both passing and rushing, which is
+         * ordinary in college football and read like this before it was fixed:
+         *
+         *   Demond Williams Jr. 24/35 for 268 and a touchdown;
+         *   Demond Williams Jr. 7 carries for 61 and a touchdown
+         *
+         * The same man twice in one sentence, as though he were two people.
+         * Found on a real game the day this shipped. His figures belong
+         * together, and the categories are still in reading order because the
+         * first one he appears in decides where he sits.
+         */
+        $byPlayer = [];
 
         foreach (self::LINES as $category => $figures) {
             $leader = $leaders[$category] ?? null;
@@ -241,8 +255,14 @@ final class Recap
             $said = $this->player($category, (array) ($leader['stats'] ?? []));
 
             if ($said !== '') {
-                $parts[] = $leader['name'] . ' ' . $said;
+                $byPlayer[(string) $leader['name']][] = $said;
             }
+        }
+
+        $parts = [];
+
+        foreach ($byPlayer as $name => $lines) {
+            $parts[] = $name . ' ' . implode(', and ', $lines);
         }
 
         return $parts === [] ? '' : implode('; ', $parts) . '.';
