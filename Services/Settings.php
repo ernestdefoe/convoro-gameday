@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Convoro\Extensions\Gameday\Services;
 
 use Convoro\Engine\Database\Connection;
+use Convoro\Extensions\Gameday\Services\Sports\Sports;
 
 /**
  * What an operator decides about game threads.
@@ -38,6 +39,21 @@ final class Settings
     public function recaps(): bool
     {
         return (string) $this->get('gameday_recaps', '1') === '1';
+    }
+
+    /**
+     * Which sport's vocabulary a recap is written in.
+     *
+     * 🚨 Gridiron by default, because every install that existed before this
+     * setting was college football and an upgrade must not change what their
+     * recaps say. An unknown value falls back to the same — a settings row
+     * naming a sport that has been removed is somebody's install, not a
+     * programming error, and a recap in the wrong words beats a scheduled job
+     * that dies.
+     */
+    public function sport(): string
+    {
+        return (string) $this->get('gameday_sport', Sports::DEFAULT);
     }
 
     /**

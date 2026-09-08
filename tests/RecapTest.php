@@ -15,6 +15,8 @@ declare(strict_types=1);
 
 use Convoro\Engine\Support\TipTapRenderer;
 use Convoro\Extensions\Gameday\Services\Recap;
+use Convoro\Extensions\Gameday\Services\Sports\Soccer;
+use Convoro\Extensions\Gameday\Services\Sports\Sports;
 
 $fixture = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/../picks/tests/fixtures/cfbd-box-score.json'),
@@ -75,7 +77,14 @@ return [
         assertTrue(str_contains($say(31, 20), 'Alabama won it by 11.'));
         assertTrue(str_contains($say(38, 17), 'Alabama had it comfortably.'));
         assertTrue(str_contains($say(52, 0), 'Alabama were never troubled.'));
-        assertTrue(str_contains($say(21, 21), 'It finished level.'));
+        /*
+         * 🚨 Remarked on rather than reported. A drawn game of American
+         * football needs a full overtime that settles nothing, and saying "it
+         * finished level" as flatly as a soccer recap would understate the
+         * strangest result the sport has. Football's own wording is asserted
+         * separately.
+         */
+        assertTrue(str_contains($say(21, 21), 'It finished level, which almost never happens.'));
     },
 
     'it says how the game was won' => function () use ($read, $game, $box) {
@@ -197,6 +206,104 @@ return [
 
         assertTrue(str_contains($html, 'Total yards'));
         assertFalse(str_contains($html, 'Possession'), 'an empty row is worse than a missing one');
+    },
+
+    /*
+     * 🚨 The seam, proved against the sport that disagrees with gridiron about
+     * nearly everything a recap says.
+     *
+     * The statistic names and the figures below are ESPN's own, from a real
+     * Everton 2–2 Manchester United box score — not invented, because a made-up
+     * payload only proves the code agrees with whoever made it up.
+     */
+    'a draw in football is an ordinary result, not a curiosity' => function () use ($read) {
+        $soccer = new Recap(new Soccer());
+
+        $text = $read($soccer->document(
+            ['home_name' => 'Everton', 'away_name' => 'Manchester United',
+             'home_score' => 2, 'away_score' => 2],
+            [
+                'home' => ['team' => 'Everton', 'points' => 2, 'leaders' => [], 'stats' => [
+                    'possessionPct' => '45.4', 'totalShots' => '18', 'shotsOnTarget' => '6',
+                    'wonCorners' => '4', 'yellowCards' => '3', 'saves' => '1',
+                ]],
+                'away' => ['team' => 'Manchester United', 'points' => 2, 'leaders' => [], 'stats' => [
+                    'possessionPct' => '54.6', 'totalShots' => '9', 'shotsOnTarget' => '4',
+                    'wonCorners' => '2', 'yellowCards' => '1', 'saves' => '4',
+                ]],
+            ],
+        ));
+
+        assertTrue(str_contains($text, 'A draw.'), $text);
+
+        // 🚨 And NOT the gridiron wording. "It finished level, which almost
+        // never happens" is true of American football and absurd here.
+        assertFalse(str_contains($text, 'almost never happens'));
+
+        assertTrue(str_contains($text, "Everton had 18 shots to Manchester United's 9, 6 on target against 4."), $text);
+        assertTrue(str_contains($text, 'Possession'), 'the comparison is the sport\'s own');
+
+        /*
+         * 🚨 The unit lives with the sport. ESPN answers a possession share as
+         * `45.4` and a shot count as `18`; printing both bare makes the first
+         * look like a count of something.
+         */
+        assertTrue(str_contains($text, '45.4%'), $text);
+        assertTrue(str_contains($text, 'Yellow cards'));
+        assertFalse(str_contains($text, 'Total yards'), 'and carries none of gridiron\'s');
+    },
+
+    'a possession share is only remarked on when it was lopsided' => function () use ($read) {
+        $soccer = new Recap(new Soccer());
+
+        $even = $read($soccer->document(
+            ['home_name' => 'A', 'away_name' => 'B', 'home_score' => 1, 'away_score' => 0],
+            ['home' => ['stats' => ['possessionPct' => '52.0'], 'leaders' => []],
+             'away' => ['stats' => ['possessionPct' => '48.0'], 'leaders' => []]],
+        ));
+
+        // Fifty-two per cent of the ball is not a fact about a match, and a
+        // recap that reports it every week teaches people to stop reading.
+        assertFalse(str_contains($even, 'of the ball'));
+
+        $lopsided = $read($soccer->document(
+            ['home_name' => 'A', 'away_name' => 'B', 'home_score' => 1, 'away_score' => 0],
+            ['home' => ['stats' => ['possessionPct' => '67.5'], 'leaders' => []],
+             'away' => ['stats' => ['possessionPct' => '32.5'], 'leaders' => []]],
+        ));
+
+        assertTrue(str_contains($lopsided, 'A had 67.5% of the ball.'), $lopsided);
+    },
+
+    'a sport with no player box score renders no empty paragraph' => function () use ($read) {
+        /*
+         * 🚨 ESPN's soccer summary carries `boxscore.teams` and nothing else —
+         * there is no player breakdown to name a scorer from. Declaring a
+         * category that is always empty would put a heading over nothing under
+         * every match.
+         */
+        assertSame([], (new Soccer())->leaderCategories());
+
+        $text = $read((new Recap(new Soccer()))->document(
+            ['home_name' => 'A', 'away_name' => 'B', 'home_score' => 1, 'away_score' => 0],
+            ['home' => ['stats' => ['totalShots' => '9'], 'leaders' => []],
+             'away' => ['stats' => ['totalShots' => '4'], 'leaders' => []]],
+        ));
+
+        assertFalse(str_contains($text, 'A: '), $text);
+    },
+
+    'an unknown sport falls back rather than throwing' => function () {
+        /*
+         * A settings value naming a sport that has been removed is somebody's
+         * install, not a programming error — and a recap in the wrong
+         * vocabulary is a far better outcome than a scheduled job that dies.
+         */
+        $sports = new Sports();
+
+        assertSame('gridiron', $sports->get('quidditch')->key());
+        assertSame('soccer', $sports->get('soccer')->key());
+        assertTrue(array_key_exists('gridiron', $sports->choices()));
     },
 
     'a box score with nothing in it is treated as no box score' => function () {

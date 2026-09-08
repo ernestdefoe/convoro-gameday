@@ -54,9 +54,21 @@ final class Gameday extends Module
             $this->app->make('db'),
         ));
 
-        // No dependencies at all: the recap is a function of a game and its box
-        // score, which is what makes what it writes readable in a test.
-        $this->app->singleton('gameday.recap', fn (): Services\Recap => new Services\Recap());
+        /*
+         * 🚨 Registered as a singleton so an application can add a sport to it
+         * before anything asks for one — a league is a class and a line, not a
+         * change to `Recap`.
+         */
+        $this->app->singleton('gameday.sports', fn (): Services\Sports\Sports => new Services\Sports\Sports());
+
+        /*
+         * The recap is a function of a game, its box score and the sport's
+         * vocabulary — no database and no clock, which is what makes what it
+         * writes readable in a test.
+         */
+        $this->app->singleton('gameday.recap', fn (): Services\Recap => new Services\Recap(
+            $this->app->make('gameday.sports')->get($this->app->make('gameday.settings')->sport()),
+        ));
 
         $this->app->singleton('gameday.threads', fn (): Services\Threads => new Services\Threads(
             $this->app->make('db'),
