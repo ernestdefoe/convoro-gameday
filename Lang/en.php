@@ -36,6 +36,8 @@ return [
     'setting_lead_hint' => 'Three hours by default: long enough that people arrive to something already there, short enough that the front page is not a wall of tomorrow\'s games.',
 
     'setting_recaps' => 'Post the final score when the game ends',
+    'setting_sport' => 'Sport',
+    'setting_sport_hint' => 'Which sport\'s words a recap is written in. A football recap talks about yards, turnovers and a quarterback\'s line; a soccer one talks about shots, possession and a draw. Where Picks records a league for the season, that wins — this is what everything else is described in.',
     'setting_fallback' => 'Forum for games with no team forum',
     'setting_fallback_hint' => 'A neutral-site game belongs to neither team. Without this, those games get no thread.',
 

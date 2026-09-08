@@ -27,6 +27,9 @@ final class Sports
     {
         $this->register(new Gridiron());
         $this->register(new Soccer());
+        $this->register(new Hardwood());
+        $this->register(new Diamond());
+        $this->register(new Ice());
     }
 
     public function register(Sport $sport): void

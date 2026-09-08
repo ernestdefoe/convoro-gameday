@@ -1,0 +1,159 @@
+{
+    "game": 0,
+    "away": {
+        "team": "Washington Commanders",
+        "points": null,
+        "stats": {
+            "firstDowns": "15",
+            "firstDownsPassing": "10",
+            "firstDownsRushing": "3",
+            "firstDownsPenalty": "2",
+            "thirdDownEff": "5-16",
+            "fourthDownEff": "1-3",
+            "totalOffensivePlays": "65",
+            "totalYards": "230",
+            "yardsPerPlay": "3.5",
+            "totalDrives": "11",
+            "netPassingYards": "179",
+            "completionAttempts": "24/42",
+            "yardsPerPass": "3.9",
+            "interceptions": "0",
+            "sacksYardsLost": "4-21",
+            "rushingYards": "51",
+            "rushingAttempts": "19",
+            "yardsPerRushAttempt": "2.7",
+            "redZoneAttempts": "1-1",
+            "totalPenaltiesYards": "5-30",
+            "turnovers": "0",
+            "fumblesLost": "0",
+            "defensiveTouchdowns": "0",
+            "possessionTime": "27:34"
+        },
+        "leaders": {
+            "passing": {
+                "name": "Jayden Daniels",
+                "stats": {
+                    "C/ATT": "24/42",
+                    "YDS": "200",
+                    "AVG": "4.8",
+                    "TD": "2",
+                    "INT": "0",
+                    "SACKS": "4-21",
+                    "QBR": "17.7",
+                    "RTG": "85.4"
+                }
+            },
+            "rushing": {
+                "name": "Jacory Croskey-Merritt",
+                "stats": {
+                    "CAR": "4",
+                    "YDS": "17",
+                    "AVG": "4.3",
+                    "TD": "0",
+                    "LONG": "5"
+                }
+            },
+            "receiving": {
+                "name": "Zach Ertz",
+                "stats": {
+                    "REC": "6",
+                    "YDS": "64",
+                    "AVG": "10.7",
+                    "TD": "1",
+                    "LONG": "20",
+                    "TGTS": "8"
+                }
+            },
+            "defensive": {
+                "name": "Bobby Wagner",
+                "stats": {
+                    "TOT": "11",
+                    "SOLO": "3",
+                    "SACKS": "0",
+                    "TFL": "0",
+                    "PD": "0",
+                    "QB HTS": "0",
+                    "TD": "0"
+                }
+            }
+        }
+    },
+    "home": {
+        "team": "Green Bay Packers",
+        "points": null,
+        "stats": {
+            "firstDowns": "22",
+            "firstDownsPassing": "14",
+            "firstDownsRushing": "6",
+            "firstDownsPenalty": "2",
+            "thirdDownEff": "5-12",
+            "fourthDownEff": "0-1",
+            "totalOffensivePlays": "63",
+            "totalYards": "404",
+            "yardsPerPlay": "6.4",
+            "totalDrives": "12",
+            "netPassingYards": "269",
+            "completionAttempts": "19/31",
+            "yardsPerPass": "8.2",
+            "interceptions": "0",
+            "sacksYardsLost": "2-23",
+            "rushingYards": "135",
+            "rushingAttempts": "30",
+            "yardsPerRushAttempt": "4.5",
+            "redZoneAttempts": "3-4",
+            "totalPenaltiesYards": "10-77",
+            "turnovers": "0",
+            "fumblesLost": "0",
+            "defensiveTouchdowns": "0",
+            "possessionTime": "32:26"
+        },
+        "leaders": {
+            "passing": {
+                "name": "Jordan Love",
+                "stats": {
+                    "C/ATT": "19/31",
+                    "YDS": "292",
+                    "AVG": "9.4",
+                    "TD": "2",
+                    "INT": "0",
+                    "SACKS": "2-23",
+                    "QBR": "51.3",
+                    "RTG": "113.9"
+                }
+            },
+            "rushing": {
+                "name": "Josh Jacobs",
+                "stats": {
+                    "CAR": "23",
+                    "YDS": "84",
+                    "AVG": "3.7",
+                    "TD": "1",
+                    "LONG": "10"
+                }
+            },
+            "receiving": {
+                "name": "Tucker Kraft",
+                "stats": {
+                    "REC": "6",
+                    "YDS": "124",
+                    "AVG": "20.7",
+                    "TD": "1",
+                    "LONG": "57",
+                    "TGTS": "7"
+                }
+            },
+            "defensive": {
+                "name": "Edgerrin Cooper",
+                "stats": {
+                    "TOT": "10",
+                    "SOLO": "7",
+                    "SACKS": "0.5",
+                    "TFL": "0",
+                    "PD": "0",
+                    "QB HTS": "2",
+                    "TD": "0"
+                }
+            }
+        }
+    }
+}

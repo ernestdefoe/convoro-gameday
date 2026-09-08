@@ -22,6 +22,41 @@ final class Games
     {
     }
 
+    /**
+     * Whether Picks records which league a season is.
+     *
+     * 🚨 Probed rather than assumed, because these are two extensions on two
+     * release lines. Picks gained `picks_seasons.league` after Game Day was
+     * written, and a board running a newer Game Day against an older Picks is
+     * an ordinary situation — not one that should produce an unknown-column
+     * error on a job that runs every minute, taking every thread with it.
+     *
+     * Cached for the process: the answer cannot change inside one request, and
+     * this is asked on every pass of the loop.
+     */
+    private ?bool $leagueColumn = null;
+
+    private function hasLeagueColumn(): bool
+    {
+        if ($this->leagueColumn !== null) {
+            return $this->leagueColumn;
+        }
+
+        try {
+            $table = $this->db->prefixed('picks_seasons');
+
+            foreach ($this->db->select("SHOW COLUMNS FROM `{$table}`") as $row) {
+                if (($row['Field'] ?? '') === 'league') {
+                    return $this->leagueColumn = true;
+                }
+            }
+        } catch (\Throwable) {
+            // Picks is not installed at all. `available()` says so properly.
+        }
+
+        return $this->leagueColumn = false;
+    }
+
     /** Whether Picks is installed at all — this extension is useless without it. */
     public function available(): bool
     {
@@ -147,17 +182,38 @@ final class Games
         $events = $this->db->prefixed('picks_events');
         $teams = $this->db->prefixed('picks_teams');
         $threads = $this->db->prefixed('gameday_threads');
+        $weeks = $this->db->prefixed('picks_weeks');
+        $seasons = $this->db->prefixed('picks_seasons');
 
+        $league = $this->hasLeagueColumn() ? 's.`league` AS league' : "'' AS league";
+        $leagueJoin = $this->hasLeagueColumn()
+            ? "LEFT JOIN `{$weeks}` w ON w.`id` = e.`week_id`
+               LEFT JOIN `{$seasons}` s ON s.`id` = w.`season_id`"
+            : '';
+
+        /*
+         * 🚨 The league is JOINED here rather than looked up per game. A recap
+         * has to be written in its own sport's words — a board following the
+         * NFL and the Premier League has both on the same Sunday — and asking
+         * for the season one game at a time is two queries per thread on a
+         * loop that already runs every minute.
+         *
+         * 🚨 LEFT joins, and a fallback where the row is missing. Picks' league
+         * column arrived after this did, and a game whose season predates it,
+         * or whose week was deleted, is a game that should still get a thread.
+         */
         return $this->db->select(
             "SELECT e.`id`, e.`match_at`, e.`status`, e.`neutral_site`,
                     e.`home_score`, e.`away_score`, e.`confirmed_at`,
                     h.`name` AS home_name, h.`abbreviation` AS home_abbr, h.`forum_id` AS home_forum_id,
                     a.`name` AS away_name, a.`abbreviation` AS away_abbr, a.`forum_id` AS away_forum_id,
-                    t.`id` AS thread_id, t.`topic_id`, t.`state` AS thread_state, t.`recap_post_id`
+                    t.`id` AS thread_id, t.`topic_id`, t.`state` AS thread_state, t.`recap_post_id`,
+                    {$league}
                FROM `{$events}` e
                INNER JOIN `{$teams}` h ON h.`id` = e.`home_team_id`
                INNER JOIN `{$teams}` a ON a.`id` = e.`away_team_id`
                LEFT JOIN `{$threads}` t ON t.`event_id` = e.`id`
+               {$leagueJoin}
               WHERE 1 = 1 " . $where,
             $bindings
         );

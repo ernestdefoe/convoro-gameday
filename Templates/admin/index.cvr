@@ -96,6 +96,16 @@
             </div>
 
             <div class="admin-form-group">
+                <label for="gameday-sport">@lang('gameday.setting_sport')</label>
+                <select id="gameday-sport" name="sport" class="admin-input input-md">
+                    @each ($sports as $key => $label)
+                    <option value="{{ $key }}" @if($sport === $key)selected@endif>{{ $label }}</option>
+                    @endeach
+                </select>
+                <p class="admin-hint">@lang('gameday.setting_sport_hint')</p>
+            </div>
+
+            <div class="admin-form-group">
                 <label for="gameday-fallback">@lang('gameday.setting_fallback')</label>
                 <select id="gameday-fallback" name="fallback" class="admin-input input-lg">
                     <option value="0">@lang('gameday.no_fallback')</option>

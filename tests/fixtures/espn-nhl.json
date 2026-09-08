@@ -1,0 +1,185 @@
+{
+    "game": 0,
+    "away": {
+        "team": "Dallas Stars",
+        "points": null,
+        "stats": {
+            "blockedShots": "14",
+            "hits": "21",
+            "takeaways": "8",
+            "shotsTotal": "28",
+            "powerPlayGoals": "1",
+            "powerPlayOpportunities": "3",
+            "powerPlayPct": "33.3",
+            "shortHandedGoals": "0",
+            "shootoutGoals": "0",
+            "faceoffsWon": "24",
+            "faceoffPercent": "46.2",
+            "giveaways": "12",
+            "penalties": "3",
+            "penaltyMinutes": "6"
+        },
+        "leaders": {
+            "forwards": {
+                "name": "Mavrik Bourque",
+                "stats": {
+                    "BS": "0",
+                    "HT": "1",
+                    "TK": "0",
+                    "+/-": "0",
+                    "TOI": "17:06",
+                    "PPTOI": "1:48",
+                    "SHTOI": "0:00",
+                    "ESTOI": "15:18",
+                    "SHFT": "20",
+                    "G": "1",
+                    "YTDG": "20",
+                    "A": "0",
+                    "S": "1",
+                    "SM": "1",
+                    "SOG": "0",
+                    "FW": "4",
+                    "FL": "2",
+                    "FO%": "66.7",
+                    "GV": "0",
+                    "PN": "1",
+                    "PIM": "2"
+                }
+            },
+            "defenses": {
+                "name": "Esa Lindell",
+                "stats": {
+                    "BS": "2",
+                    "HT": "1",
+                    "TK": "1",
+                    "+/-": "0",
+                    "TOI": "22:14",
+                    "PPTOI": "2:00",
+                    "SHTOI": "3:30",
+                    "ESTOI": "16:44",
+                    "SHFT": "22",
+                    "G": "1",
+                    "YTDG": "6",
+                    "A": "1",
+                    "S": "3",
+                    "SM": "1",
+                    "SOG": "0",
+                    "FW": "0",
+                    "FL": "0",
+                    "FO%": "0.0",
+                    "GV": "0",
+                    "PN": "0",
+                    "PIM": "0"
+                }
+            },
+            "goalies": {
+                "name": "Jake Oettinger",
+                "stats": {
+                    "GA": "3",
+                    "SA": "24",
+                    "SOS": "0",
+                    "SOSA": "0",
+                    "SV": "21",
+                    "SV%": ".875",
+                    "ESSV": "17",
+                    "PPSV": "4",
+                    "SHSV": "0",
+                    "TOI": "65:00",
+                    "YTDG": "0",
+                    "PIM": "0"
+                }
+            }
+        }
+    },
+    "home": {
+        "team": "Buffalo Sabres",
+        "points": null,
+        "stats": {
+            "blockedShots": "14",
+            "hits": "23",
+            "takeaways": "4",
+            "shotsTotal": "24",
+            "powerPlayGoals": "0",
+            "powerPlayOpportunities": "3",
+            "powerPlayPct": "0.0",
+            "shortHandedGoals": "1",
+            "shootoutGoals": "0",
+            "faceoffsWon": "28",
+            "faceoffPercent": "53.8",
+            "giveaways": "13",
+            "penalties": "3",
+            "penaltyMinutes": "6"
+        },
+        "leaders": {
+            "forwards": {
+                "name": "Zach Benson",
+                "stats": {
+                    "BS": "1",
+                    "HT": "0",
+                    "TK": "0",
+                    "+/-": "2",
+                    "TOI": "24:22",
+                    "PPTOI": "4:03",
+                    "SHTOI": "2:32",
+                    "ESTOI": "17:47",
+                    "SHFT": "30",
+                    "G": "1",
+                    "YTDG": "13",
+                    "A": "1",
+                    "S": "3",
+                    "SM": "1",
+                    "SOG": "0",
+                    "FW": "0",
+                    "FL": "0",
+                    "FO%": "0.0",
+                    "GV": "0",
+                    "PN": "0",
+                    "PIM": "0"
+                }
+            },
+            "defenses": {
+                "name": "Bowen Byram",
+                "stats": {
+                    "BS": "0",
+                    "HT": "0",
+                    "TK": "0",
+                    "+/-": "-1",
+                    "TOI": "19:35",
+                    "PPTOI": "2:01",
+                    "SHTOI": "1:57",
+                    "ESTOI": "15:37",
+                    "SHFT": "26",
+                    "G": "0",
+                    "YTDG": "11",
+                    "A": "0",
+                    "S": "0",
+                    "SM": "1",
+                    "SOG": "0",
+                    "FW": "0",
+                    "FL": "0",
+                    "FO%": "0.0",
+                    "GV": "1",
+                    "PN": "0",
+                    "PIM": "0"
+                }
+            },
+            "goalies": {
+                "name": "Colten Ellis",
+                "stats": {
+                    "GA": "3",
+                    "SA": "28",
+                    "SOS": "0",
+                    "SOSA": "0",
+                    "SV": "25",
+                    "SV%": ".893",
+                    "ESSV": "25",
+                    "PPSV": "0",
+                    "SHSV": "0",
+                    "TOI": "65:00",
+                    "YTDG": "0",
+                    "PIM": "0"
+                }
+            }
+        }
+    }
+}

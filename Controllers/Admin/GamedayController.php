@@ -29,6 +29,14 @@ final class GamedayController extends Controller
             'enabled' => $settings->enabled(),
             'lead' => $settings->leadMinutes(),
             'recaps' => $settings->recaps(),
+            /*
+             * 🚨 The options come from the REGISTRY, never from a list written
+             * into the template. A second copy of the sport list goes stale the
+             * first time an extension registers a league — which is the whole
+             * reason the registry exists.
+             */
+            'sport' => $settings->sport(),
+            'sports' => $this->app->make('gameday.sports')->choices(),
             'fallback' => $settings->fallbackForumId(),
             /*
              * 🚨 Shown as a NAME, stored as an id.
@@ -66,6 +74,14 @@ final class GamedayController extends Controller
         $values = [
             'gameday_enabled' => $request->input('enabled') !== null ? '1' : '0',
             'gameday_recaps' => $request->input('recaps') !== null ? '1' : '0',
+            /*
+             * 🚨 Validated against the registry rather than stored as typed. An
+             * unknown key would fall back to gridiron every time it is read,
+             * which looks exactly like the setting not saving.
+             */
+            'gameday_sport' => $this->app->make('gameday.sports')->has((string) $request->input('sport'))
+                ? (string) $request->input('sport')
+                : \Convoro\Extensions\Gameday\Services\Sports\Sports::DEFAULT,
             /*
              * Clamped here as well as in Settings. The form is one way in; a value
              * typed into the database by hand is another, and neither should be able

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Convoro\Extensions\Gameday\Services;
 
+use Convoro\Extensions\Gameday\Services\Sports\Sports;
+use Convoro\Extensions\Picks\Services\Leagues\Leagues as PicksLeagues;
+
 use Convoro\Engine\Convoro;
 use Convoro\Engine\Database\Connection;
 use Convoro\Engine\Support\Str;
@@ -38,8 +41,67 @@ final class Threads
         private Settings $settings,
         private BoxScore $boxScore,
         private Recap $recaps,
+        private Sports $sports = new Sports(),
     ) {
     }
+
+    /**
+     * The recap writer for one game, in that game's own sport.
+     *
+     * 🚨 The sport comes from the GAME's league, not from the setting, whenever
+     * Picks records one. A board following the NFL and the Premier League has
+     * both on the same Sunday, and a single setting would describe half of them
+     * in the wrong vocabulary — talking about yards and turnovers under a 2–2
+     * draw.
+     *
+     * 🚨 The injected `Recap` is the fallback rather than dead weight: it
+     * carries the operator's own setting, which is the right answer for a
+     * season created before leagues existed and for a board that follows one
+     * competition.
+     *
+     * @param array<string, mixed> $game
+     */
+    private function writerFor(array $game): Recap
+    {
+        $sport = $this->sportOf((string) ($game['league'] ?? ''));
+
+        /*
+         * 🚨 Only when this build actually HAS that sport. Picks can name a
+         * league whose vocabulary was added there and not here — the two are
+         * separate extensions on separate release lines — and the registry's
+         * own fallback would then quietly answer gridiron.
+         */
+        return $sport !== '' && $this->sports->has($sport)
+            ? new Recap($this->sports->get($sport))
+            : $this->recaps;
+    }
+
+    /**
+     * Which vocabulary a league is described in.
+     *
+     * 🚨 Asked of PICKS, which owns the league registry, rather than answered
+     * from a second copy of it here. A map in this file would be a map that
+     * disagrees with Picks the first time somebody registers a competition, and
+     * it would disagree silently — every match in the new league described in
+     * football's words.
+     *
+     * 🚨 Guarded by `class_exists`, because these are two extensions on two
+     * release lines and a newer Game Day against an older Picks is ordinary.
+     * Without the league registry there is one sport, the operator's, which is
+     * exactly how this behaved before leagues existed.
+     */
+    private function sportOf(string $league): string
+    {
+        if ($league === '' || !class_exists(PicksLeagues::class)) {
+            return '';
+        }
+
+        $this->pickLeagues ??= new PicksLeagues();
+
+        return $this->pickLeagues->has($league) ? $this->pickLeagues->get($league)->sport : '';
+    }
+
+    private ?PicksLeagues $pickLeagues = null;
 
     /** Open threads for games about to kick off. Returns how many were opened. */
     public function open(): int
@@ -347,7 +409,7 @@ final class Threads
                 continue;
             }
 
-            $this->rewrite((int) $row['recap_post_id'], $this->recaps->document($game, $box));
+            $this->rewrite((int) $row['recap_post_id'], $this->writerFor($game)->document($game, $box));
 
             $this->db->table('gameday_threads')->where('id', (int) $row['id'])->updateAll([
                 'stats_at' => date('Y-m-d H:i:s'),
@@ -376,7 +438,7 @@ final class Threads
     /** The score, as a post somebody returning on Sunday actually reads. */
     private function recap(array $game, int $topicId): ?int
     {
-        $body = $this->recaps->document($game, $this->boxScore->forEvent((int) $game['id']));
+        $body = $this->writerFor($game)->document($game, $this->boxScore->forEvent((int) $game['id']));
 
         $renderer = new TipTapRenderer();
         $html = $renderer->render($body);
