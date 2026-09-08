@@ -3,6 +3,7 @@
     "name": "Game Day",
     "version": "1.6.0",
     "description": "A thread for every game, opened before kickoff, live while it is played, and kept afterwards with a recap that says how the game was won. The recap is written in the vocabulary of the sport being played. Reads the fixtures and box scores Picks already syncs, so nothing here reaches a provider.",
+    "license": "MIT",
     "author": "Ernest Defoe",
     "convoro": "^1.29.2",
     "requires": [
